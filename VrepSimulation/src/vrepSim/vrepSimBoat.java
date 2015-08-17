@@ -76,9 +76,13 @@ public class vrepSimBoat {
         IntW modelIdW = new IntW(1);
         
         //Add model to vrep scene
-        vrep.simxLoadModel(clientId, MODEL_FILE, 0, modelIdW,
+        int returnVal = vrep.simxLoadModel(clientId, MODEL_FILE, 0, modelIdW,
                 remoteApi.simx_opmode_oneshot_wait);
-        
+        if( returnVal != remoteApi.simx_return_ok )
+        {
+            System.out.println("Boat Model" + nodeInd + " failed to load.");
+            System.exit(-1);
+        }
         //Extract model id from wrapper
         modelId = modelIdW.getValue();
         
