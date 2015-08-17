@@ -7,6 +7,7 @@ import com.madara.threads.Threader;
 import coppelia.remoteApi;
 import coppelia.FloatWA;
 import coppelia.IntW;
+import java.util.ArrayList;
 import java.util.List;
 import javax.measure.unit.NonSI;
 import javax.measure.unit.SI;
@@ -36,10 +37,10 @@ public class vrepSimBoat {
     private GpsPosition gps;       //current gps reading
     private double[] gyro;         //current gyro reading
     private double[] compass;      //current compass reading
-    private Threader threader;
-    private LutraGAMS lutra;
-    private DatumListener datumListener;
-    List<Datum> gpsHistory; // maintain a list of GPS data within some time window
+    private final Threader threader;
+    private final LutraGAMS lutra;
+    private final DatumListener datumListener;
+    List<Datum> gpsHistory = new ArrayList<>(); // maintain a list of GPS data within some time window
     final double gpsHistoryTimeWindow = 3.0; // if a gps point is older than X seconds, abandon it
     double eBoardGPSTimestamp = 0.0;
     SimpleRegression regX = new SimpleRegression();
@@ -172,11 +173,15 @@ public class vrepSimBoat {
         
         @Override
         public void run() {
+            
+            try {
             //Get absolute gyro reading
             gyro = getGyro();
             
             //TODO: Add noise to gyro        /////////////////////////////////////////////////////////////////////////////////////
             
+            
+            if (Math.abs(gyro[2]) > 1000.0) {return;} // need this because once in a while the gyro explodes to some ridiculous number, even if the boat is just sitting still
                         
             RealMatrix z = MatrixUtils.createRealMatrix(1,1);
             z.setEntry(0,0,gyro[2]);
@@ -184,6 +189,10 @@ public class vrepSimBoat {
             R.setEntry(0, 0, 0.0004*0.0004); // the noise floor with zero input --> TINY error, so this is supreme overconfidence
             Datum datum = new Datum(SENSOR_TYPE.GYRO,System.currentTimeMillis(),z,R,nodeInd);
             datumListener.newDatum(datum);            
+            }
+            catch (Exception e) {
+                System.out.println(String.format("ERROR in GyroThread: %s",e));
+            }
         }
 
       
