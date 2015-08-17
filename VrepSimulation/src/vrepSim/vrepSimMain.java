@@ -11,10 +11,10 @@ public class vrepSimMain{
       remoteApi vrep = new remoteApi();
       
       //Number of boats in the scene
-      int numBoats = 1;
+      final int NUMBER_OF_SIMULATED_BOATS = 1;
       //Initial positions of boats
-      GpsPosition [] initPos = new GpsPosition[numBoats];
-      initPos[0] =  new GpsPosition(0,0,0);
+      GpsPosition[] initPositions = new GpsPosition[NUMBER_OF_SIMULATED_BOATS];
+      initPositions[0] =  new GpsPosition(0,0,0);
       
       //Vrep communication settings
       String vrepHost = "127.0.0.1";
@@ -37,18 +37,18 @@ public class vrepSimMain{
       }
 
       //load simultion scene
-      vrep.simxStopSimulation (clientId, vrep.simx_opmode_oneshot);
-      vrep.simxCloseScene (clientId, vrep.simx_opmode_oneshot_wait);
-      String scene  = System.getenv ("GAMS_ROOT");
+      vrep.simxStopSimulation (clientId, remoteApi.simx_opmode_oneshot);
+      vrep.simxCloseScene (clientId, remoteApi.simx_opmode_oneshot_wait);
+      String scene  = System.getenv ("GAMS_ROOT"); // need to have the $GAMS_ROOT environment variable set up
       scene += "/resources/vrep/starting.ttt";
-      vrep.simxLoadScene (clientId, scene, 0, vrep.simx_opmode_oneshot_wait);
+      vrep.simxLoadScene (clientId, scene, 0, remoteApi.simx_opmode_oneshot_wait);
 
       //Add models to scene. Pass sw_corner as parameter
       ArrayList<vrepSimBoat> boats = new ArrayList<>();
-      for(int i = 0; i < numBoats; i++)
-          boats.add( new vrepSimBoat(i, initPos[i], swPosition) );
+      for(int i = 0; i < NUMBER_OF_SIMULATED_BOATS; i++)
+          boats.add( new vrepSimBoat(i, initPositions[i], swPosition) );
       boolean flag = true;
-      while(flag);  
+      while(flag){/**/};  
       // close connection to vrep
       System.out.print("closing vrep connection...");
       vrep.simxFinish (clientId);

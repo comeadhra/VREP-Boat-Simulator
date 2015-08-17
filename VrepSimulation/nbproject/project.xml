@@ -4,8 +4,9 @@
     <configuration>
         <data xmlns="http://www.netbeans.org/ns/j2se-project/3">
             <name>VrepSimulation</name>
+            <explicit-platform explicit-source-supported="true"/>
             <source-roots>
-                <root id="src.src.dir" name="/home/cormac/GAMS"/>
+                <root id="src.src.dir"/>
             </source-roots>
             <test-roots/>
         </data>

@@ -7,6 +7,15 @@ import com.madara.threads.Threader;
 import coppelia.remoteApi;
 import coppelia.FloatWA;
 import coppelia.IntW;
+import java.util.List;
+import javax.measure.unit.NonSI;
+import javax.measure.unit.SI;
+import org.apache.commons.math.linear.MatrixUtils;
+import org.apache.commons.math.linear.RealMatrix;
+import org.apache.commons.math.stat.regression.SimpleRegression;
+import org.jscience.geography.coordinates.LatLong;
+import org.jscience.geography.coordinates.UTM;
+import org.jscience.geography.coordinates.crs.ReferenceEllipsoid;
 
 
 public class vrepSimBoat {
@@ -24,27 +33,34 @@ public class vrepSimBoat {
     private final String vrepHost = "127.0.0.1";
     private final int vrepPort;          //vrep communication port 
     private final GpsPosition  swPosition;        //GPS coordinates of origin
-    private float lm = 0;
-    private float rm = 0;
     private GpsPosition gps;       //current gps reading
     private double[] gyro;         //current gyro reading
     private double[] compass;      //current compass reading
     private Threader threader;
-    public vrepSimBoat(int nodeInd, GpsPosition initGps, 
-                                    GpsPosition swPosition){
-    //Launch Boat controller
-        //TODO
+    private LutraGAMS lutra;
+    private DatumListener datumListener;
+    List<Datum> gpsHistory; // maintain a list of GPS data within some time window
+    final double gpsHistoryTimeWindow = 3.0; // if a gps point is older than X seconds, abandon it
+    double eBoardGPSTimestamp = 0.0;
+    SimpleRegression regX = new SimpleRegression();
+    SimpleRegression regY = new SimpleRegression();    
+    
+    public vrepSimBoat(int nodeInd, GpsPosition initGps, GpsPosition swPosition) {
+        
+        // start the software that would be running on the boat
+        lutra = new LutraGAMS(nodeInd, 1, THRUST_TYPES.DIFFERENTIAL);
+        lutra.start(lutra);
+        datumListener = lutra.platform.boatEKF;
+        
         //Instantiate Threader for thread handling
         threader = new Threader();
-        //Launch test controller
-        threader.run("5.0", new ControllerTestThread());
         
         //Initialise VREP remote API
         vrep = new remoteApi();
 
         //Store simulation properties
         this.nodeInd = nodeInd;
-        vrepPort = 19905 + this.nodeInd + 1;
+        vrepPort = 19905 + this.nodeInd + 1; // each boat on its own port
         this.swPosition = swPosition;
         
         //Open connection to vrep
@@ -72,10 +88,10 @@ public class vrepSimBoat {
         
         
         //Start sensor threads
-        threader.run("5.0", new GpsThread());
-        threader.run("5.0", new CompassThread());
-        threader.run("5.0", new GyroThread());
-        threader.run("100.0", new MotorUpdateThread());
+        threader.run(5.0, "gpsThread", new GpsThread());
+        threader.run(5.0, "compassThread", new CompassThread());
+        threader.run(5.0, "gyroThread", new GyroThread());
+        threader.run(100.0, "motorUpdateThread", new MotorUpdateThread());
 
     }
     //Thread to get GPS position from VREP, add noise
@@ -88,10 +104,68 @@ public class vrepSimBoat {
         public void run() {
             //Get absolute GPS position
             gps = getPosition();
-            //Add noise to GPS 
-
+            double lat = gps.getLatitude();
+            double lon = gps.getLongitude();
+            
+            // TODO: Add noise to GPS             /////////////////////////////////////////////////////////////////////////////////
+            
             //Set datum listener with new value
+            UTM utmLoc = UTM.latLongToUtm(LatLong.valueOf(lat,lon, NonSI.DEGREE_ANGLE),ReferenceEllipsoid.WGS84);
+            if (lutra != null) {
+                lutra.platform.containers.longitudeZone.set((long)utmLoc.longitudeZone());
+                lutra.platform.containers.latitudeZone.set(java.lang.String.format("%c",utmLoc.latitudeZone()));
+            }
+            RealMatrix z = MatrixUtils.createRealMatrix(2,1);
+            z.setEntry(0, 0, utmLoc.eastingValue(SI.METER));
+            z.setEntry(1,0,utmLoc.northingValue(SI.METER));
+            RealMatrix R = MatrixUtils.createRealMatrix(2,2);
+            R.setEntry(0, 0, 5.0);
+            R.setEntry(1,1,5.0);
+            Datum datum = new Datum(SENSOR_TYPE.GPS,System.currentTimeMillis(),z,R, nodeInd);
+            datumListener.newDatum(datum);
+
+            gpsVelocity(datum);
         }
+    }
+    
+    private void gpsVelocity(Datum datum) {
+        Long t = System.currentTimeMillis();
+
+        gpsHistory.add(datum);
+
+        for (int i = gpsHistory.size()-1; i > -1; i--) {
+            if ((t.doubleValue() - gpsHistory.get(i).getTimestamp().doubleValue())/1000.0 > gpsHistoryTimeWindow) {
+                gpsHistory.remove(i);
+            }
+        }
+        String gpsHistoryString = String.format("There are %d GPS measurements in the history",gpsHistory.size());
+        System.out.println(gpsHistoryString);
+
+        if (gpsHistory.size() < 6) {return;} // need at least three data points
+
+        // Least squares linear regression with respect to time
+        double[][] xvst = new double[gpsHistory.size()][2];
+        double [][] yvst = new double [gpsHistory.size()][2];
+        for (int i = 0; i < gpsHistory.size(); i++) {
+            double local_t = gpsHistory.get(i).getTimestamp().doubleValue()/1000.0;
+            xvst[i][0] = local_t;
+            yvst[i][0] = local_t;
+            xvst[i][1] = gpsHistory.get(i).getZ().getEntry(0,0);
+            yvst[i][1] = gpsHistory.get(i).getZ().getEntry(1,0);
+        }
+        regX.addData(xvst);
+        regY.addData(yvst);
+        double xdot = regX.getSlope();
+        double ydot = regY.getSlope();
+
+        RealMatrix z = MatrixUtils.createRealMatrix(2,1);
+        z.setEntry(0,0,xdot);
+        z.setEntry(1, 0, ydot);
+        RealMatrix R = MatrixUtils.createRealMatrix(2,2);
+        R.setEntry(0, 0, 10.0);
+        R.setEntry(1, 1, 10.0);
+        Datum datum2 = new Datum(SENSOR_TYPE.DGPS,t,z,R,nodeInd);
+        datumListener.newDatum(datum2);        
     }
 
     private class GyroThread extends BaseThread {
@@ -100,9 +174,16 @@ public class vrepSimBoat {
         public void run() {
             //Get absolute gyro reading
             gyro = getGyro();
-            //Add noise to gyro 
-
-            //Set datum listener with new value
+            
+            //TODO: Add noise to gyro        /////////////////////////////////////////////////////////////////////////////////////
+            
+                        
+            RealMatrix z = MatrixUtils.createRealMatrix(1,1);
+            z.setEntry(0,0,gyro[2]);
+            RealMatrix R = MatrixUtils.createRealMatrix(1,1);
+            R.setEntry(0, 0, 0.0004*0.0004); // the noise floor with zero input --> TINY error, so this is supreme overconfidence
+            Datum datum = new Datum(SENSOR_TYPE.GYRO,System.currentTimeMillis(),z,R,nodeInd);
+            datumListener.newDatum(datum);            
         }
 
       
@@ -113,10 +194,34 @@ public class vrepSimBoat {
         @Override
         public void run() {
             //Get absolute compass reading
-            compass = getCompass();
-            //Add noise to compass
-
-            //Set datum listener with new value
+            compass = getCompass();            
+            //TODO: Add noise to compass   /////////////////////////////////////////////////////////////////////////////////////////
+            
+            double yaw = compass[2];
+            // alter the measurement by 2*PI until its difference with current yaw is minimized
+            if (lutra.platform.containers != null) {
+                double currentYaw = lutra.platform.containers.eastingNorthingBearing.get(2);
+                double angleBetween = currentYaw - yaw;
+                double originalSign = Math.signum(angleBetween);
+                double newYawMeasurement = yaw;
+                while (true) {
+                    newYawMeasurement = yaw + originalSign * 2 * Math.PI;
+                    double newAngleBetween = currentYaw - newYawMeasurement;
+                    if (Math.abs(newAngleBetween) < Math.abs(angleBetween)) {
+                        angleBetween = newAngleBetween;
+                        yaw = newYawMeasurement;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            
+            RealMatrix z = MatrixUtils.createRealMatrix(1,1);
+            z.setEntry(0,0,yaw);
+            RealMatrix R = MatrixUtils.createRealMatrix(1,1);
+            R.setEntry(0, 0, Math.pow((Math.PI/18.0)/2.0,2.0)); // estimate 10 degrees is 2 std. dev's
+            Datum datum = new Datum(SENSOR_TYPE.COMPASS,System.currentTimeMillis(),z,R,nodeInd);
+            datumListener.newDatum(datum);
         }
 
     }
@@ -128,16 +233,18 @@ public class vrepSimBoat {
 
         @Override
         public void run() {
-            //TODO: Get motor values from LutraGams
-            //Get motor speeds from knowledge base
-            leftMotorSpeed = lm; //get value from container
-            rightMotorSpeed = rm;
+            if (lutra != null) {
+                //TODO: Get motor values from LutraGams
+                //Get motor speeds from knowledge base
+                leftMotorSpeed = (float)lutra.platform.containers.motorCommands.get(0); //get value from container
+                rightMotorSpeed = (float)lutra.platform.containers.motorCommands.get(1); //get value from container
 
-            //Set motor speeds in simulator
-            vrep.simxSetFloatSignal(clientId, leftMotorSig, leftMotorSpeed,
-                    remoteApi.simx_opmode_oneshot);
-            vrep.simxSetFloatSignal(clientId, rightMotorSig, rightMotorSpeed,
-                    remoteApi.simx_opmode_oneshot);
+                //Set motor speeds in simulator
+                vrep.simxSetFloatSignal(clientId, leftMotorSig, leftMotorSpeed,
+                        remoteApi.simx_opmode_oneshot);
+                vrep.simxSetFloatSignal(clientId, rightMotorSig, rightMotorSpeed,
+                        remoteApi.simx_opmode_oneshot);
+            }
 
         }
 
@@ -229,12 +336,13 @@ public class vrepSimBoat {
         vrepPosArray[0] = (gpsPos.getLongitude() - swPosition.getLongitude()) / 360.0 * circumference;
 
         // do nothing to altitude
-        vrepPosArray[3] = gpsPos.getAltitude();
+        vrepPosArray[2] = gpsPos.getAltitude();
 
         return new FloatWA(vrepPosArray);
     }
     
-    private class ControllerTestThread extends BaseThread{
+    /*
+    private class ControllerTestThread extends BaseThread {
         
         public void run()
         {
@@ -253,4 +361,5 @@ public class vrepSimBoat {
         }    
         
     }
+    */
 }
