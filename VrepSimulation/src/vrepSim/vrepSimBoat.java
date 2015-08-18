@@ -29,8 +29,8 @@ public class vrepSimBoat {
     private final int nodeInd;           //index of node
     private final int modelId;           //model id
     private final int clientId;          //id of vrep simulation scene
-    private final String rightMotorSig = "lm";
-    private final String leftMotorSig = "rm";
+    private final String rightMotorSig = "motor1";
+    private final String leftMotorSig = "motor0";
     private final String vrepHost = "127.0.0.1";
     private final int vrepPort;          //vrep communication port 
     private final GpsPosition  swPosition;        //GPS coordinates of origin
@@ -108,9 +108,13 @@ public class vrepSimBoat {
         @Override
         public void run() {
             //Get absolute GPS position
-            gps = getPosition();
+            getPosition();
             double lat = gps.getLatitude();
             double lon = gps.getLongitude();
+            
+            if (Math.abs(lat) > 1e8 || Math.abs(lon) > 1e8) {
+                return;
+            }
             
             // TODO: Add noise to GPS             /////////////////////////////////////////////////////////////////////////////////
             
@@ -144,9 +148,9 @@ public class vrepSimBoat {
             }
         }
         String gpsHistoryString = String.format("There are %d GPS measurements in the history",gpsHistory.size());
-        System.out.println(gpsHistoryString);
+        //System.out.println(gpsHistoryString);
 
-        if (gpsHistory.size() < 6) {return;} // need at least three data points
+        if (gpsHistory.size() < 6) {return;} // need at least 6 data points
 
         // Least squares linear regression with respect to time
         double[][] xvst = new double[gpsHistory.size()][2];
@@ -167,7 +171,7 @@ public class vrepSimBoat {
         z.setEntry(0,0,xdot);
         z.setEntry(1, 0, ydot);
         RealMatrix R = MatrixUtils.createRealMatrix(2,2);
-        R.setEntry(0, 0, 10.0);
+        R.setEntry(0, 0, 10.0); // 5 meteres is 2 standard deviations, so 2*sig = 5 --> sig^2 = (5/2)^2 = 6.25
         R.setEntry(1, 1, 10.0);
         Datum datum2 = new Datum(SENSOR_TYPE.DGPS,t,z,R,nodeInd);
         datumListener.newDatum(datum2);        
@@ -177,8 +181,6 @@ public class vrepSimBoat {
         
         @Override
         public void run() {
-            
-            try {
             //Get absolute gyro reading
             gyro = getGyro();
             
@@ -193,10 +195,6 @@ public class vrepSimBoat {
             R.setEntry(0, 0, 0.0004*0.0004); // the noise floor with zero input --> TINY error, so this is supreme overconfidence
             Datum datum = new Datum(SENSOR_TYPE.GYRO,System.currentTimeMillis(),z,R,nodeInd);
             datumListener.newDatum(datum);            
-            }
-            catch (Exception e) {
-                System.out.println(String.format("ERROR in GyroThread: %s",e));
-            }
         }
 
       
@@ -211,6 +209,11 @@ public class vrepSimBoat {
             //TODO: Add noise to compass   /////////////////////////////////////////////////////////////////////////////////////////
             
             double yaw = compass[2];
+            
+            if (Math.abs(yaw) > 1000.0) { // protect against weird explosions in value
+                return;
+            }
+            
             // alter the measurement by 2*PI until its difference with current yaw is minimized
             if (lutra.platform.containers != null) {
                 double currentYaw = lutra.platform.containers.eastingNorthingBearing.get(2);
@@ -251,6 +254,8 @@ public class vrepSimBoat {
                 //Get motor speeds from knowledge base
                 leftMotorSpeed = (float)lutra.platform.containers.motorCommands.get(0); //get value from container
                 rightMotorSpeed = (float)lutra.platform.containers.motorCommands.get(1); //get value from container
+                
+                //System.out.println(String.format("motorCommands.get(0) = %f,  motorCommands.get(1) = %f",leftMotorSpeed,rightMotorSpeed));
 
                 //Set motor speeds in simulator
                 vrep.simxSetFloatSignal(clientId, leftMotorSig, leftMotorSpeed,
@@ -262,19 +267,6 @@ public class vrepSimBoat {
         }
 
 
-    }
-
-    /**
-     * Return current position of the boat in GPS co-ordinates
-     *
-     * @return GpsPosition Position of the boat
-     */
-    public GpsPosition getPosition() {
-        FloatWA vrepPos = new FloatWA(3);
-        vrep.simxSetObjectPosition(clientId, modelId, -1,
-                vrepPos, remoteApi.simx_opmode_oneshot);
-        gps = vrepToGps(vrepPos);
-        return gps;
     }
 
     public double[] getGyro() {
@@ -308,27 +300,41 @@ public class vrepSimBoat {
         return compass;
     }
 
-    private GpsPosition vrepToGps(FloatWA vrepPos) {
+    /**
+     * Return current position of the boat in GPS co-ordinates
+     *
+     * @return GpsPosition Position of the boat
+     */
+    public GpsPosition getPosition() {
+        FloatWA vrepPos = new FloatWA(3);
+        vrep.simxGetObjectPosition(clientId, modelId, -1,
+                vrepPos, remoteApi.simx_opmode_oneshot_wait);
+        
+        vrepToGps(vrepPos);
+        
+        //System.out.println(String.format("vrep generated gps LAT = %f, LON = %f",gps.getLatitude(), gps.getLongitude()));
+        
+        return gps;
+    }    
+    
+    private void vrepToGps(FloatWA vrepPos) {
         float[] pos = vrepPos.getArray();
         // assume the Earth is a perfect sphere
         final double EARTH_RADIUS = 6371000.0;
         final double EARTH_CIRCUMFERENCE = 2 * EARTH_RADIUS * Math.PI;
-        GpsPosition gpsPos = new GpsPosition();
-    // convert the latitude/y coordinates
+        // convert the latitude/y coordinates
         // VREP uses y for latitude
-        gpsPos.setLatitude((360.0 * pos[1] / EARTH_CIRCUMFERENCE)
-                + swPosition.getLatitude());
+        gps.setLatitude((360.0 * pos[1] / EARTH_CIRCUMFERENCE) + swPosition.getLatitude());
 
-    // assume the meters/degree longitude is constant throughout environment
+        // assume the meters/degree longitude is constant throughout environment
         // convert the longitude/x coordinates
         // VREP uses x for longitude
         double r_prime = EARTH_RADIUS * Math.cos(Math.toRadians(swPosition.getLatitude()));
         double circumference = 2 * r_prime * Math.PI;
-        gpsPos.setLongitude((360.0 * pos[0] / circumference) + swPosition.getLongitude());
+        gps.setLongitude((360.0 * pos[0] / circumference) + swPosition.getLongitude());
 
         // do nothing to altitude
-        gpsPos.setAltitude(pos[2]);
-        return gpsPos;
+        gps.setAltitude(pos[2]);
     }
 
     private FloatWA gpsToVrep(GpsPosition gpsPos) {

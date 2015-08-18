@@ -56,7 +56,7 @@ enum SENSOR_TYPE {
 public class Datum {
 
     SENSOR_TYPE type;
-    Position position;
+    //Position position;
     Long timestamp;
     RealMatrix z; // sensor value
     RealMatrix R; // sensor covariance
@@ -77,11 +77,11 @@ public class Datum {
         idIncrement++;
         dateobj = new Date();
         
-        if (containers != null) {
-            position = new Position();
-            position.setX(containers.self.device.location.get(0));
-            position.setY(containers.self.device.location.get(1));
-        }
+        //if (containers != null) {
+        //    position = new Position();
+        //    position.setX(containers.self.device.location.get(0));
+        //    position.setY(containers.self.device.location.get(1));
+        //}
         
     }
     public Datum(SENSOR_TYPE type, Long timestamp, RealMatrix z, RealMatrix R, int boatID) { // for localization data
@@ -90,7 +90,7 @@ public class Datum {
     }
     public Datum(SENSOR_TYPE type, Position position, Long timestamp, RealMatrix z, int boatID) { // for environmental data
         this(type,timestamp,z, boatID);
-        this.position = position;
+        //this.position = position;
     }
 
     static void setContainersObject(LutraMadaraContainers inputContainers) {
@@ -99,19 +99,19 @@ public class Datum {
 
     public void setZ(RealMatrix z) {this.z = z.copy(); }
     public void setR(RealMatrix R) {this.R = R.copy(); }
-    public void setPosition(Position position) {this.position = position;}
+    //public void setPosition(Position position) {this.position = position;}
     public void setTimestamp(Long timestamp) {this.timestamp = timestamp;}
     public void setType(SENSOR_TYPE type) {this.type = type;}
     public RealMatrix getZ() {return this.z.copy();}
     public SENSOR_TYPE getType() {return this.type;}
     public RealMatrix getR() {return this.R.copy();}
     public Long getTimestamp() {return this.timestamp;}
-    public Position getPosition() {return this.position;}
+    //public Position getPosition() {return this.position;}
     
     @Override
     public String toString() {
         return String.format("TYPE = %s,  DATE = 20%s,  LAT = %.6e,  LONG = %.6e, VALUE = %s",
-                typeString(this.type),df.format(dateobj),position.getX(),position.getY(),zString());
+                typeString(this.type),df.format(dateobj),containers.self.device.location.get(0),containers.self.device.location.get(1),zString());
     }
 
     String zString () {

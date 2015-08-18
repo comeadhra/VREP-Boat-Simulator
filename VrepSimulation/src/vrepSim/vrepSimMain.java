@@ -16,15 +16,15 @@ public class vrepSimMain {
         final int NUMBER_OF_SIMULATED_BOATS = 1;
         //Initial positions of boats
         GpsPosition[] initPositions = new GpsPosition[NUMBER_OF_SIMULATED_BOATS];
-        initPositions[0] = new GpsPosition(0, 0, 0);
+        initPositions[0] = new GpsPosition(40.436902, -79.948678, 0);
 
         //Vrep communication settings
         String vrepHost = "127.0.0.1";
         int vrepPort = 19905;
 
-        //GPS co-ordinates of VREP origin
-        double sw_lat = 40.442824;
-        double sw_long = -79.940967;
+        //GPS co-ordinates of VREP origin, currently set to Panther Hollow
+        double sw_lat = 40.436902;
+        double sw_long = -79.948678;
 
         GpsPosition swPosition = new GpsPosition(sw_lat, sw_long, 0.0);
 
@@ -41,7 +41,7 @@ public class vrepSimMain {
         vrep.simxStopSimulation(clientId, remoteApi.simx_opmode_oneshot);
         vrep.simxCloseScene(clientId, remoteApi.simx_opmode_oneshot_wait);
         String scene = System.getenv("GAMS_ROOT"); // need to have the $GAMS_ROOT environment variable set up
-        scene += "/resources/vrep/starting.ttt";
+        scene += "/resources/vrep/starting_NoBoats.ttt";
         vrep.simxLoadScene(clientId, scene, 0, remoteApi.simx_opmode_oneshot_wait);
 
         //Load functional water model
@@ -61,13 +61,19 @@ public class vrepSimMain {
             System.out.println("Adding boat " + i);
             boats.add(new vrepSimBoat(i, initPositions[i], swPosition));
         }
+        
+        vrep.simxStartSimulation(clientId, returnVal);    ////////////////////////////////////////////////////////////////////////////////////
+        
         boolean flag = true;
-        while (flag) {/**/
-
-        };
+        //double tStart = System.currentTimeMillis()/1000.0;
+        while (flag) {
+            //double t = System.currentTimeMillis()/1000.0;
+            //if ((t - tStart) > 5.0) {flag = false;}
+        }
         // close connection to vrep
+        vrep.simxStopSimulation(clientId, returnVal);
         System.out.print("closing vrep connection...");
-        vrep.simxFinish(clientId);
+        vrep.simxFinish(clientId);        
         System.out.println("done");
 
     }
