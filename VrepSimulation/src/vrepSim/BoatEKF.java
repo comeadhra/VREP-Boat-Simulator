@@ -97,7 +97,7 @@ public class BoatEKF implements DatumListener {
     public synchronized void newDatum(Datum datum) {
 
         //String threadID = String.format(" -- thread # %d",Thread.currentThread().getId());
-        System.out.println(datum.toString());
+        //System.out.println(datum.toString());
         
         /*
         if (!(datum.isType(SENSOR_TYPES.GYRO) ||

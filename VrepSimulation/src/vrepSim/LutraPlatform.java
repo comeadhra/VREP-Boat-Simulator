@@ -19,6 +19,7 @@ import org.jscience.geography.coordinates.UTM;
 import javax.measure.unit.NonSI;
 
 import edu.cmu.ri.crw.data.UtmPose;
+import java.util.Arrays;
 
 
 /**
@@ -42,7 +43,7 @@ public class LutraPlatform extends BasePlatform {
     final double METERS_PER_LATLONG_DEGREE = 111*1000;
     Long startTime;
     Position position;
-    Position currentTarget;
+    double[] currentTarget;
     final int timeSteps = 100;
     RealMatrix velocityProfile = MatrixUtils.createRealMatrix(timeSteps, 3); // t, vel., pos.
     LatLong latLong;
@@ -79,7 +80,7 @@ public class LutraPlatform extends BasePlatform {
         threader = new Threader(knowledge);
         this.thrustType = thrustType;
         position = new Position(0.0,0.0,0.0);
-        currentTarget = new Position(-999,-999,-999);
+        currentTarget = new double[3];
     }
 
     @Override
@@ -184,11 +185,13 @@ public class LutraPlatform extends BasePlatform {
     }
 
     public int move(Position target, double proximity) {
-        if (currentTarget.equals(target)) {
+        double[] targetArray;
+        targetArray = target.toArray();
+        if (Arrays.equals(targetArray, currentTarget)) {
             return PlatformStatusEnum.OK.value();
         }
         else {
-            currentTarget = target;
+            currentTarget = targetArray;
             self.device.source.set(0, containers.eastingNorthingBearing.get(0));
             self.device.source.set(1, containers.eastingNorthingBearing.get(1));
             self.device.source.set(2, containers.eastingNorthingBearing.get(2));
@@ -301,6 +304,7 @@ public class LutraPlatform extends BasePlatform {
     }
 
     public int sense() {
+        
         containers.connectivityWatchdog.set(1L);
 
         // move local .x localization state into device.id.location
@@ -326,7 +330,7 @@ public class LutraPlatform extends BasePlatform {
         containers.errorEllipse.set(1,errorEllipse[1]);
         containers.errorEllipse.set(2,errorEllipse[2]);
 
-        knowledge.print();
+        //knowledge.print();
 
         return PlatformStatusEnum.OK.value();
     }

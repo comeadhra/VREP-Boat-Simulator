@@ -61,10 +61,10 @@ public class BoatMotionController implements VelocityProfileListener {
         simplePIDErrorAccumulator = new double[] {0.0,0.0,0.0};
         PPIErrorAccumulator = 0.0;
     }
-
+    
     public void control() {
         updateFromKnowledgeBase();
-        if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {
+        if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {           
             xErrorOld = xError.copy();
             tOld = t;
             t = System.currentTimeMillis();
@@ -103,7 +103,7 @@ public class BoatMotionController implements VelocityProfileListener {
             xErrorDiff = xError.subtract(xErrorOld).scalarMultiply(1.0/dt);
 
             String xErrorDiffString = String.format("xError = %s",RMO.realMatrixToString(xErrorDiff));
-            System.out.println(xErrorDiffString);
+            //System.out.println(xErrorDiffString);
 
             headingSignal = simplePIDGains[1][0]*xError.getEntry(2,0) + // P
                                         simplePIDGains[1][1]*simplePIDErrorAccumulator[2] + // I
@@ -114,12 +114,12 @@ public class BoatMotionController implements VelocityProfileListener {
             //    PPICascade();
             //}
             //else
-            //if (Math.abs(angleError) < headingErrorThreshold) {
-            //    simplePID();
-            //}
-            //else {
-            //    thrustSignal *= 0.5;
-            //}
+            if (Math.abs(angleError) < headingErrorThreshold) {
+                simplePID();
+            }
+            else {
+                thrustSignal *= 0.5;
+            }
             thrustAndBearingFractionsFromErrorSignal();
         }
         else { // some form of teleoperation is occurring, so don't accumulate error and don't try to control anything
@@ -136,6 +136,7 @@ public class BoatMotionController implements VelocityProfileListener {
         datumListener.newDatum(datum);
 
         motorCommandsFromThrustAndBearingFractions();
+        
     }
 
     void simplePID() {
@@ -180,7 +181,6 @@ public class BoatMotionController implements VelocityProfileListener {
             double dError = dd - containers.distToDest.get();
             PPIErrorAccumulator += PPIGains[0]*dError + vError;
             thrustSignal = PPIGains[1]*(PPIGains[0]*dError + vError) + PPIGains[2]*PPIErrorAccumulator;
-            //containers.teleopThrustFraction.set(PPIGains[1]*(PPIGains[0]*dError + vError) + PPIGains[2]*PPIErrorAccumulator);
         }
         else {
             //TODO: perhaps make this exponentially decay each iteration instead?

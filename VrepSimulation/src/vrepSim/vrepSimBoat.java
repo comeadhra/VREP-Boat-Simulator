@@ -96,7 +96,7 @@ public class vrepSimBoat {
         threader.run(5.0, "gpsThread", new GpsThread());
         threader.run(5.0, "compassThread", new CompassThread());
         threader.run(5.0, "gyroThread", new GyroThread());
-        threader.run(100.0, "motorUpdateThread", new MotorUpdateThread());
+        threader.run(25.0, "motorUpdateThread", new MotorUpdateThread());
 
     }
     //Thread to get GPS position from VREP, add noise
