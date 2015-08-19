@@ -119,12 +119,12 @@ public class BoatMotionController implements VelocityProfileListener {
                         headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI));
                 
                 // Determine which controller to use, simple PID or P-PI pos./vel. cascade
-                if (containers.executingProfile.get() == 1) {
-                    PPICascade();
-                }
-                else {                  
+                //if (containers.executingProfile.get() == 1) {
+                //    PPICascade();
+                //}
+                //else {                  
                     simplePID();
-                }
+                //}
             }
 
             thrustAndBearingFractionsFromErrorSignal();

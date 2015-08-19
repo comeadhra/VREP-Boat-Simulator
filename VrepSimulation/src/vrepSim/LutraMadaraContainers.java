@@ -93,7 +93,7 @@ public class LutraMadaraContainers {
     NativeDoubleVector bearingPIDGains;
     NativeDoubleVector thrustPIDGains;
     NativeDoubleVector thrustPPIGains;
-    final double defaultSufficientProximity = 3.0;
+    final double defaultSufficientProximity = 2.0;
     final double defaultPeakVelocity = 2.0;
     final double defaultAccelTime = 5.0;
     final double defaultDecelTime = 5.0;
@@ -102,7 +102,7 @@ public class LutraMadaraContainers {
     final long defaultTeleopStatus = TELEOPERATION_TYPES.GUI_MS.getLongValue(); // start in teleop mode!
     final long defaultThrustType = THRUST_TYPES.DIFFERENTIAL.getLongValue();
     final double controlHz = 25.0; // frequency of control loop and sending the corresponding JSON commands
-    final double[] bearingPIDGainsDefaults = new double[]{0.25,0.0,200.0}; // cols: P,I,D
+    final double[] bearingPIDGainsDefaults = new double[]{0.5,0.0,0.5}; // cols: P,I,D
     final double[] thrustPIDGainsDefaults = new double[]{0.2,0,0.3}; // cols: P,I,D
     final double[] thrustPPIGainsDefaults = new double[]{0.2,0.2,0.2}; // cols: Pos-P, Vel-P, Vel-I
 
