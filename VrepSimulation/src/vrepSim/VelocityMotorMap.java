@@ -43,7 +43,7 @@ public class VelocityMotorMap {
         // enforce bounds on thrustFraction
         if (thrustFraction < MIN_THRUST_FRACTION)  {
             if (thrustFraction > 0.0) {
-                System.out.println("WARNING: input thrust fraction is less than 0.1. Returning velocity = 0 ...");
+                //System.out.println("WARNING: input thrust fraction is less than 0.1. Returning velocity = 0 ...");
             }
             return 0.0;
         }

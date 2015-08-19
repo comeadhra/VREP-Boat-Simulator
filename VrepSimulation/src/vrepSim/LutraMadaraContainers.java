@@ -102,7 +102,7 @@ public class LutraMadaraContainers {
     final long defaultTeleopStatus = TELEOPERATION_TYPES.GUI_MS.getLongValue(); // start in teleop mode!
     final long defaultThrustType = THRUST_TYPES.DIFFERENTIAL.getLongValue();
     final double controlHz = 25.0; // frequency of control loop and sending the corresponding JSON commands
-    final double[] bearingPIDGainsDefaults = new double[]{0.5,0.1,50.0}; // cols: P,I,D
+    final double[] bearingPIDGainsDefaults = new double[]{0.25,0.0,200.0}; // cols: P,I,D
     final double[] thrustPIDGainsDefaults = new double[]{0.2,0,0.3}; // cols: P,I,D
     final double[] thrustPPIGainsDefaults = new double[]{0.2,0.2,0.2}; // cols: Pos-P, Vel-P, Vel-I
 

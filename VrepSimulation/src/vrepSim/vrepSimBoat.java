@@ -29,8 +29,8 @@ public class vrepSimBoat {
     private final int nodeInd;           //index of node
     private final int modelId;           //model id
     private final int clientId;          //id of vrep simulation scene
-    private final String rightMotorSig = "motor1";
-    private final String leftMotorSig = "motor0";
+    private final String leftMotorSig = "motor1";
+    private final String rightMotorSig = "motor0";
     private final String vrepHost = "127.0.0.1";
     private final int vrepPort;          //vrep communication port 
     private final GpsPosition  swPosition;        //GPS coordinates of origin
@@ -96,7 +96,7 @@ public class vrepSimBoat {
         threader.run(5.0, "gpsThread", new GpsThread());
         threader.run(5.0, "compassThread", new CompassThread());
         threader.run(5.0, "gyroThread", new GyroThread());
-        threader.run(25.0, "motorUpdateThread", new MotorUpdateThread());
+        threader.run(5.0, "motorUpdateThread", new MotorUpdateThread());
 
     }
     //Thread to get GPS position from VREP, add noise

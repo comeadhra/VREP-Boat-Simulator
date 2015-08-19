@@ -181,7 +181,8 @@ public class LutraPlatform extends BasePlatform {
         self.device.dest.set(0,localTarget[0]+home[0]);
         self.device.dest.set(1,localTarget[1]+home[1]);
 
-        containers.sufficientProximity.set(proximity);
+        //System.out.println(String.format("proximity = %.3f",proximity));        
+        //containers.sufficientProximity.set(proximity);
     }
 
     public int move(Position target, double proximity) {
