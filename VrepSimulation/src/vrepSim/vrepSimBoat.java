@@ -171,8 +171,8 @@ public class vrepSimBoat {
         z.setEntry(0,0,xdot);
         z.setEntry(1, 0, ydot);
         RealMatrix R = MatrixUtils.createRealMatrix(2,2);
-        R.setEntry(0, 0, 10.0); // 5 meteres is 2 standard deviations, so 2*sig = 5 --> sig^2 = (5/2)^2 = 6.25
-        R.setEntry(1, 1, 10.0);
+        R.setEntry(0, 0, 1.0);
+        R.setEntry(1, 1, 1.0);
         Datum datum2 = new Datum(SENSOR_TYPE.DGPS,t,z,R,nodeInd);
         datumListener.newDatum(datum2);        
     }

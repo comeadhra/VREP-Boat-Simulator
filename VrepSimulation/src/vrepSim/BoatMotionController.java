@@ -23,8 +23,9 @@ public class BoatMotionController implements VelocityProfileListener {
     double dt;
     double t0; // time at the start of the velocity profile
     boolean t0set;
+    boolean pointing;
     LutraMadaraContainers containers;
-    final double headingErrorThreshold = 45.0*Math.PI/180.0; // thrust scales with a cosine up to this angle, where it = 0
+    final double headingErrorThreshold = 30.0*Math.PI/180.0; // thrust scales with a cosine up to this angle, where it = 0
     double simplePIDGains[][];
     double PPIGains[];
     double PPIErrorAccumulator; // [Pos-P*(pos error) + vel error] accumulation
@@ -55,6 +56,7 @@ public class BoatMotionController implements VelocityProfileListener {
         velocityMotorMap = new VelocityMotorMap(containers);
         PPIGains = new double[3];
         simplePIDGains = new double[2][3];
+        pointing = true;
     }
 
     public void zeroErrors() {
@@ -64,7 +66,16 @@ public class BoatMotionController implements VelocityProfileListener {
     
     public void control() {
         updateFromKnowledgeBase();
-        if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {           
+        if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {      
+            
+            double velToGoal = containers.velocityTowardGoal();
+            double rotVel = x.getEntry(4, 0)*180.0/Math.PI;                
+            if (velToGoal > 0.5 && Math.abs(rotVel) < 5.0) {
+                pointing = false;
+            }            
+            System.out.println(String.format("velocity toward goal = %.4f [m/s]   rotVel = %.4f [deg/s]   STATUS = %s",velToGoal,rotVel,(pointing ? "pointing" : "shooting")));
+            
+            
             xErrorOld = xError.copy();
             tOld = t;
             t = System.currentTimeMillis();
@@ -81,25 +92,28 @@ public class BoatMotionController implements VelocityProfileListener {
             while (Math.abs(angleError) > Math.PI) {
                 angleError = angleError - Math.signum(angleError)*2*Math.PI;
             }
+            
+            if (angleError > 45.0*Math.PI/180.0) {
+                // the only wait to point is to arrive at your goal after shooting or if your angle error is very large
+                pointing = true;
+            }
 
             java.lang.String angleErrorString = java.lang.String.format("th = %f  thd = %f  ERROR = %f [deg]",
                     x.getEntry(2,0)*180.0/Math.PI,angleToGoal*180.0/Math.PI,angleError*180.0/Math.PI);
             //System.out.println(angleErrorString);
 
             xError.setEntry(2, 0, angleError);            
-            //System.out.println("X error = " + RMO.realMatrixToString(xError.getSubMatrix(0, 2, 0, 0)));
 
             // if you are within a sufficient distance from the goal, stop following velocity profiles
-            containers.distToDest.set(RMO.distance(x.getSubMatrix(0, 1, 0, 0), xd.getSubMatrix(0, 1, 0, 0)));
-            
-            //System.out.println(String.format("distToDest = %.3f  sufficientProximity = %.3f",containers.distToDest.get(),containers.sufficientProximity.get()));
-            
+            containers.distToDest.set(RMO.distance(x.getSubMatrix(0, 1, 0, 0), xd.getSubMatrix(0, 1, 0, 0)));            
+            //System.out.println(String.format("distToDest = %.3f  sufficientProximity = %.3f",containers.distToDest.get(),containers.sufficientProximity.get()));            
             if (containers.distToDest.get() < containers.sufficientProximity.get()) {
                 containers.executingProfile.set(0);
                 // reset PPICascade and simplePID accumulated error variables
                 zeroErrors();
                 thrustSignal = 0.0;
                 headingSignal = 0.0;
+                pointing = true; // the only wait to point is to arrive at your goal after shooting or if your angle error is very large
             }
             else {
                 for (int i = 0; i < 3; i++) {
@@ -108,23 +122,27 @@ public class BoatMotionController implements VelocityProfileListener {
                 xErrorDiff = xError.subtract(xErrorOld).scalarMultiply(1.0/dt);
 
                 String xErrorDiffString = String.format("xError = %s",RMO.realMatrixToString(xErrorDiff));
-                //System.out.println(xErrorDiffString);
                 
                 double Pterm = simplePIDGains[1][0]*xError.getEntry(2,0);
                 double Iterm = simplePIDGains[1][1]*simplePIDErrorAccumulator[2];
-                double Dterm = simplePIDGains[1][2]*xErrorDiff.getEntry(2,0);
+                
+                //double Dterm = simplePIDGains[1][2]*xErrorDiff.getEntry(2,0);
+                double Dterm = 0.0;                
+                if (pointing) {
+                    Dterm = simplePIDGains[1][2]*xErrorDiff.getEntry(2,0);
+                }
 
                 headingSignal =  Pterm + Iterm + Dterm;
-                System.out.println(String.format("Bearing PID: total signal = %.4f  P-term = %.4f  I-term = %.4f  D-term = %.4f, ERROR = %f [deg]",
-                        headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI));
+                //System.out.println(String.format("Bearing PID: total signal = %.4f  P-term = %.4f  I-term = %.4f  D-term = %.4f, ERROR = %f [deg] .... thrustSignal = %.4f",
+                //        headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI,thrustSignal));
                 
                 // Determine which controller to use, simple PID or P-PI pos./vel. cascade
-                //if (containers.executingProfile.get() == 1) {
-                //    PPICascade();
-                //}
-                //else {                  
+                if (containers.executingProfile.get() == 1) {
+                    PPICascade();
+                }
+                else {                  
                     simplePID();
-                //}
+                }
             }
 
             thrustAndBearingFractionsFromErrorSignal();

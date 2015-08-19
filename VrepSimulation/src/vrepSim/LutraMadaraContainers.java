@@ -102,7 +102,7 @@ public class LutraMadaraContainers {
     final long defaultTeleopStatus = TELEOPERATION_TYPES.GUI_MS.getLongValue(); // start in teleop mode!
     final long defaultThrustType = THRUST_TYPES.DIFFERENTIAL.getLongValue();
     final double controlHz = 25.0; // frequency of control loop and sending the corresponding JSON commands
-    final double[] bearingPIDGainsDefaults = new double[]{0.5,0.0,0.5}; // cols: P,I,D
+    final double[] bearingPIDGainsDefaults = new double[]{0.3,0.005,0.5}; // cols: P,I,D
     final double[] thrustPIDGainsDefaults = new double[]{0.2,0,0.3}; // cols: P,I,D
     final double[] thrustPPIGainsDefaults = new double[]{0.2,0.2,0.2}; // cols: Pos-P, Vel-P, Vel-I
 
@@ -281,16 +281,24 @@ public class LutraMadaraContainers {
 
     public double velocityTowardGoal() {
         // calculate the boat's current velocity along the line between its current location and the goal
-        RealMatrix initialV = MatrixUtils.createRealMatrix(2,1);
-        initialV.setEntry(0,0,this.localState.get(3)*Math.cos(this.localState.get(2)) - this.localState.get(5));
-        initialV.setEntry(1,0,this.localState.get(3)*Math.sin(this.localState.get(2)) - this.localState.get(6));
-        RealMatrix xd = NDV_to_RM(self.device.dest).subtract(NDV_to_RM(self.device.home));
+        KnowledgeRecord KR = this.localState.toRecord();        
+        double[] xArray = KR.toDoubleArray();
+        KR.free();
         RealMatrix x = MatrixUtils.createRealMatrix(2, 1);
-        x.setEntry(0, 0, this.localState.get(0));
-        x.setEntry(1,0,this.localState.get(1));
+        x.setEntry(0, 0, xArray[0]);
+        x.setEntry(1,0,xArray[1]);                
+        RealMatrix initialV = MatrixUtils.createRealMatrix(2,1);
+        initialV.setEntry(0,0,xArray[3]*Math.cos(xArray[2]) - xArray[5]);
+        initialV.setEntry(1,0,xArray[3]*Math.sin(xArray[2]) - xArray[6]);
+        RealMatrix xd = NDV_to_RM(self.device.dest).subtract(NDV_to_RM(self.device.home));
         RealMatrix xError = xd.getSubMatrix(0,1,0,0).subtract(x);
         RealMatrix xErrorNormalized = xError.scalarMultiply(1 / RMO.norm2(xError));
         double v = RMO.dot(initialV, xErrorNormalized); // initial speed in the direction of the goal
+        
+        //System.out.println(java.lang.String.format("x = %s\ninitialV = %s\nxErrorNormalized = %s",
+        //        RMO.realMatrixToString(x),RMO.realMatrixToString(initialV),RMO.realMatrixToString(xErrorNormalized)));
+        
+        
         return v;
     }
 
