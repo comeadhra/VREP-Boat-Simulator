@@ -295,8 +295,8 @@ public class LutraMadaraContainers {
         RealMatrix xErrorNormalized = xError.scalarMultiply(1 / RMO.norm2(xError));
         double v = RMO.dot(initialV, xErrorNormalized); // initial speed in the direction of the goal
         
-        System.out.println(java.lang.String.format("x = %s\ninitialV = %s\nxErrorNormalized = %s",
-                RMO.realMatrixToString(x),RMO.realMatrixToString(initialV),RMO.realMatrixToString(xErrorNormalized)));
+        //System.out.println(java.lang.String.format("x = %s\ninitialV = %s\nxErrorNormalized = %s",
+        //        RMO.realMatrixToString(x),RMO.realMatrixToString(initialV),RMO.realMatrixToString(xErrorNormalized)));
         
         
         return v;

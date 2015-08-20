@@ -66,19 +66,7 @@ public class BoatMotionController implements VelocityProfileListener {
     
     public void control() {
         updateFromKnowledgeBase();
-        if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {      
-            
-            double velToGoal = containers.velocityTowardGoal();
-            double rotVel = x.getEntry(4, 0)*180.0/Math.PI;     
-            if (pointing) {
-                if (velToGoal > 0.5 && Math.abs(rotVel) < 5.0) {
-                    pointing = false;
-                    zeroErrors(); // start integration of error with shooting status
-                }            
-            }
-            System.out.println(String.format("velocity toward goal = %.4f [m/s]   rotVel = %.4f [deg/s]   STATUS = %s",velToGoal,rotVel,(pointing ? "pointing" : "shooting")));
-            
-            
+        if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {                  
             xErrorOld = xError.copy();
             tOld = t;
             t = System.currentTimeMillis();
@@ -96,8 +84,20 @@ public class BoatMotionController implements VelocityProfileListener {
                 angleError = angleError - Math.signum(angleError)*2*Math.PI;
             }
             
-            if (angleError > 45.0*Math.PI/180.0) {
-                // the only wait to point is to arrive at your goal after shooting or if your angle error is very large
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            double velToGoal = containers.velocityTowardGoal();
+            double rotVel = x.getEntry(4, 0)*180.0/Math.PI;     
+            if (pointing) {
+                //if (velToGoal > 0.5 && Math.abs(rotVel) < 5.0) {
+                if (Math.abs(rotVel) < 4.0 && Math.abs(angleError) < headingErrorThreshold) {
+                    pointing = false;
+                    zeroErrors(); // start integration of error with shooting status
+                }            
+            }
+            //System.out.println(String.format("angleError = %.4f [deg]  velocity toward goal = %.4f [m/s]   rotVel = %.4f [deg/s]   STATUS = %s",angleError*180.0/Math.PI,velToGoal,rotVel,(pointing ? "pointing" : "shooting")));            
+            ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            
+            if (angleError > 45.0*Math.PI/180.0) { // the only two ways to point is to arrive at your goal after shooting or if your angle error is very large                
                 pointing = true;
             }
 
@@ -116,7 +116,10 @@ public class BoatMotionController implements VelocityProfileListener {
                 zeroErrors();
                 thrustSignal = 0.0;
                 headingSignal = 0.0;
-                pointing = true; // the only wait to point is to arrive at your goal after shooting or if your angle error is very large
+                if (!pointing) {
+                    System.out.println("*** ARRIVED AT GOAL ***");
+                }
+                pointing = true; // the only two ways to point is to arrive at your goal after shooting or if your angle error is very large                
             }
             else {
                 for (int i = 0; i < 3; i++) {
@@ -139,16 +142,16 @@ public class BoatMotionController implements VelocityProfileListener {
                 }
 
                 headingSignal =  Pterm + Iterm + Dterm;
-                System.out.println(String.format("Bearing PID: total signal = %.4f  P-term = %.4f  I-term = %.4f  D-term = %.4f, ERROR = %f [deg] .... thrustSignal = %.4f",
-                        headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI,thrustSignal));
+                //System.out.println(String.format("Bearing PID: total signal = %.4f  P-term = %.4f  I-term = %.4f  D-term = %.4f, ERROR = %f [deg] .... thrustSignal = %.4f",
+                //        headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI,thrustSignal));
                 
                 // Determine which controller to use, simple PID or P-PI pos./vel. cascade
-                //if (containers.executingProfile.get() == 1) {
-                //    PPICascade();
-                //}
-                //else {                  
+                if (containers.executingProfile.get() == 1) {
+                    PPICascade();
+                }
+                else {                  
                     simplePID();
-                //}
+                }
             }
 
             thrustAndBearingFractionsFromErrorSignal();
@@ -170,12 +173,12 @@ public class BoatMotionController implements VelocityProfileListener {
         
     }
 
-    void simplePID() {        
+    void simplePID() {                
         // Operate on x and y concurrently
         double srssP = SRSS(xError.getEntry(0,0),xError.getEntry(1,0));
         double srssI = SRSS(simplePIDErrorAccumulator[0],simplePIDErrorAccumulator[1]);
         double srssD = SRSS(xErrorDiff.getEntry(0,0),xErrorDiff.getEntry(1,0));
-        thrustSignal = simplePIDGains[0][0]*srssP + simplePIDGains[0][1]*srssI + simplePIDGains[0][2]*srssD;
+        thrustSignal = simplePIDGains[0][0]*srssP + simplePIDGains[0][1]*srssI + simplePIDGains[0][2]*srssD;                        
     }
 
     double SRSS(double a, double b) {
@@ -194,7 +197,8 @@ public class BoatMotionController implements VelocityProfileListener {
         double vd; // the desired velocity
         double dd; // the desired distance from target
 
-        if (Math.abs(xError.getEntry(2, 0)) < headingErrorThreshold) {
+        //if (Math.abs(xError.getEntry(2, 0)) < headingErrorThreshold) {
+        if (!pointing) {
             if (!t0set) {
                 t0 = t.doubleValue()/1000.0;
                 t0set = true;
@@ -202,17 +206,22 @@ public class BoatMotionController implements VelocityProfileListener {
             double tRelative = t.doubleValue()/1000.0 - t0;
             // linear interpolate desired velocity
             vd = RMO.interpolate1D(profile,tRelative,1);
+            double v = containers.velocityTowardGoal();
             dd = RMO.interpolate1D(profile,tRelative,2);
+            double d = containers.distToDest.get();
+            
+            System.out.println(String.format("PPI: vd = %.3f  actual v = %.3f  fx = %.3f  fy = %.3f  dd = %.3f  actual d = %.3f",vd,v,x.getEntry(5,0),x.getEntry(6,0),dd,d));
 
             // use actual velocity towards goal (use velocityTowardGoal()), actual distance from goal (distToDest container) to generate errors
-            double vError = vd - containers.velocityTowardGoal();
-            double dError = dd - containers.distToDest.get();
+            double vError = vd - v;
+            double dError = d - dd; // note how this is backwards because we want positive motor action to REDUCE the distance
             PPIErrorAccumulator += PPIGains[0]*dError + vError;
             thrustSignal = PPIGains[1]*(PPIGains[0]*dError + vError) + PPIGains[2]*PPIErrorAccumulator;
         }
         else {
             //TODO: perhaps make this exponentially decay each iteration instead?
-            thrustSignal *= 0.5;
+            thrustSignal = 0.0;
+            //thrustSignal *= 0.5;
             //containers.teleopThrustFraction.set(0.5*containers.teleopThrustFraction.get());
         }
     }

@@ -301,14 +301,14 @@ public class BoatEKF implements DatumListener {
         double d = Math.sqrt(dtemp.getEntry(0,0));
 
         boolean incorporate = false;                
-        System.out.println(String.format("Mahalanobis distance = %f",d));
+        //System.out.println(String.format("Mahalanobis distance = %f",d));
         if (d < 3.0) { 
             // if Mahalanobis distance is below threshold, update state estimate, x_{k+1} = x_{k} + K*(dz) 
             //    and update state covariance P_{k+1} = (I - KH)P
             incorporate = true;
         }
         else {
-            System.out.println("WARNING, Mahalanobis distance is > 3. Measurement will be ignored.");
+            //System.out.println("WARNING, Mahalanobis distance is > 3. Measurement will be ignored.");
         }
         if (incorporate) {
             x = x.add(K.multiply(dz));

@@ -166,13 +166,15 @@ public class vrepSimBoat {
         regY.addData(yvst);
         double xdot = regX.getSlope();
         double ydot = regY.getSlope();
+        
+        System.out.println(String.format("xdot = %.3f  ydot = %.3f  v = %.3f",xdot,ydot,Math.sqrt(xdot*xdot+ydot*ydot)));
 
         RealMatrix z = MatrixUtils.createRealMatrix(2,1);
         z.setEntry(0,0,xdot);
         z.setEntry(1, 0, ydot);
         RealMatrix R = MatrixUtils.createRealMatrix(2,2);
-        R.setEntry(0, 0, 1.0);
-        R.setEntry(1, 1, 1.0);
+        R.setEntry(0, 0, 0.1); // definitely overconfident
+        R.setEntry(1, 1, 0.1);
         Datum datum2 = new Datum(SENSOR_TYPE.DGPS,t,z,R,nodeInd);
         datumListener.newDatum(datum2);        
     }
