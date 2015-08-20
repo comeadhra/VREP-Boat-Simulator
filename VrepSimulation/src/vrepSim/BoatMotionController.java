@@ -25,7 +25,7 @@ public class BoatMotionController implements VelocityProfileListener {
     boolean t0set;
     boolean pointing;
     LutraMadaraContainers containers;
-    final double headingErrorThreshold = 30.0*Math.PI/180.0; // thrust scales with a cosine up to this angle, where it = 0
+    final double headingErrorThreshold = 20.0*Math.PI/180.0; // thrust scales with a cosine up to this angle, where it = 0
     double simplePIDGains[][];
     double PPIGains[];
     double PPIErrorAccumulator; // [Pos-P*(pos error) + vel error] accumulation
@@ -69,10 +69,13 @@ public class BoatMotionController implements VelocityProfileListener {
         if (containers.teleopStatus.get() == TELEOPERATION_TYPES.NONE.getLongValue()) {      
             
             double velToGoal = containers.velocityTowardGoal();
-            double rotVel = x.getEntry(4, 0)*180.0/Math.PI;                
-            if (velToGoal > 0.5 && Math.abs(rotVel) < 5.0) {
-                pointing = false;
-            }            
+            double rotVel = x.getEntry(4, 0)*180.0/Math.PI;     
+            if (pointing) {
+                if (velToGoal > 0.5 && Math.abs(rotVel) < 5.0) {
+                    pointing = false;
+                    zeroErrors(); // start integration of error with shooting status
+                }            
+            }
             System.out.println(String.format("velocity toward goal = %.4f [m/s]   rotVel = %.4f [deg/s]   STATUS = %s",velToGoal,rotVel,(pointing ? "pointing" : "shooting")));
             
             
@@ -124,25 +127,28 @@ public class BoatMotionController implements VelocityProfileListener {
                 String xErrorDiffString = String.format("xError = %s",RMO.realMatrixToString(xErrorDiff));
                 
                 double Pterm = simplePIDGains[1][0]*xError.getEntry(2,0);
-                double Iterm = simplePIDGains[1][1]*simplePIDErrorAccumulator[2];
+                double Iterm = 0.0;                
                 
                 //double Dterm = simplePIDGains[1][2]*xErrorDiff.getEntry(2,0);
                 double Dterm = 0.0;                
                 if (pointing) {
                     Dterm = simplePIDGains[1][2]*xErrorDiff.getEntry(2,0);
                 }
+                else {
+                    Iterm = simplePIDGains[1][1]*simplePIDErrorAccumulator[2];
+                }
 
                 headingSignal =  Pterm + Iterm + Dterm;
-                //System.out.println(String.format("Bearing PID: total signal = %.4f  P-term = %.4f  I-term = %.4f  D-term = %.4f, ERROR = %f [deg] .... thrustSignal = %.4f",
-                //        headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI,thrustSignal));
+                System.out.println(String.format("Bearing PID: total signal = %.4f  P-term = %.4f  I-term = %.4f  D-term = %.4f, ERROR = %f [deg] .... thrustSignal = %.4f",
+                        headingSignal,Pterm,Iterm,Dterm,angleError*180.0/Math.PI,thrustSignal));
                 
                 // Determine which controller to use, simple PID or P-PI pos./vel. cascade
-                if (containers.executingProfile.get() == 1) {
-                    PPICascade();
-                }
-                else {                  
+                //if (containers.executingProfile.get() == 1) {
+                //    PPICascade();
+                //}
+                //else {                  
                     simplePID();
-                }
+                //}
             }
 
             thrustAndBearingFractionsFromErrorSignal();
@@ -164,12 +170,8 @@ public class BoatMotionController implements VelocityProfileListener {
         
     }
 
-    void simplePID() {
-        
-        // Operate on x,y, and theta concurrently.
-        // The boat's heading should converge to the direction of water flow (i.e. fx,fy)
-        // That way the boat just needs to go straight forward to stay on the right spot
-
+    void simplePID() {        
+        // Operate on x and y concurrently
         double srssP = SRSS(xError.getEntry(0,0),xError.getEntry(1,0));
         double srssI = SRSS(simplePIDErrorAccumulator[0],simplePIDErrorAccumulator[1]);
         double srssD = SRSS(xErrorDiff.getEntry(0,0),xErrorDiff.getEntry(1,0));

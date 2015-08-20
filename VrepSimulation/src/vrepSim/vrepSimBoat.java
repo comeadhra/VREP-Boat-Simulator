@@ -41,7 +41,7 @@ public class vrepSimBoat {
     private final LutraGAMS lutra;
     private final DatumListener datumListener;
     List<Datum> gpsHistory = new ArrayList<>(); // maintain a list of GPS data within some time window
-    final double gpsHistoryTimeWindow = 3.0; // if a gps point is older than X seconds, abandon it
+    final double gpsHistoryTimeWindow = 2.0; // if a gps point is older than X seconds, abandon it
     double eBoardGPSTimestamp = 0.0;
     SimpleRegression regX = new SimpleRegression();
     SimpleRegression regY = new SimpleRegression();    
@@ -96,7 +96,7 @@ public class vrepSimBoat {
         threader.run(5.0, "gpsThread", new GpsThread());
         threader.run(5.0, "compassThread", new CompassThread());
         threader.run(5.0, "gyroThread", new GyroThread());
-        threader.run(5.0, "motorUpdateThread", new MotorUpdateThread());
+        threader.run(25.0, "motorUpdateThread", new MotorUpdateThread());
 
     }
     //Thread to get GPS position from VREP, add noise

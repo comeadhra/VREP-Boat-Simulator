@@ -102,9 +102,9 @@ public class LutraMadaraContainers {
     final long defaultTeleopStatus = TELEOPERATION_TYPES.GUI_MS.getLongValue(); // start in teleop mode!
     final long defaultThrustType = THRUST_TYPES.DIFFERENTIAL.getLongValue();
     final double controlHz = 25.0; // frequency of control loop and sending the corresponding JSON commands
-    final double[] bearingPIDGainsDefaults = new double[]{0.3,0.005,0.5}; // cols: P,I,D
+    final double[] bearingPIDGainsDefaults = new double[]{0.2,0.005,0.5}; // cols: P,I,D
     final double[] thrustPIDGainsDefaults = new double[]{0.2,0,0.3}; // cols: P,I,D
-    final double[] thrustPPIGainsDefaults = new double[]{0.2,0.2,0.2}; // cols: Pos-P, Vel-P, Vel-I
+    final double[] thrustPPIGainsDefaults = new double[]{0.2,0.2,0.05}; // cols: Pos-P, Vel-P, Vel-I
 
     //static long[] environmentalDataCount = new long[SENSOR_TYPE.environmental.size()];
     HashMap<SENSOR_TYPE, Long> environmentalDataCount = new HashMap<>();
@@ -295,8 +295,8 @@ public class LutraMadaraContainers {
         RealMatrix xErrorNormalized = xError.scalarMultiply(1 / RMO.norm2(xError));
         double v = RMO.dot(initialV, xErrorNormalized); // initial speed in the direction of the goal
         
-        //System.out.println(java.lang.String.format("x = %s\ninitialV = %s\nxErrorNormalized = %s",
-        //        RMO.realMatrixToString(x),RMO.realMatrixToString(initialV),RMO.realMatrixToString(xErrorNormalized)));
+        System.out.println(java.lang.String.format("x = %s\ninitialV = %s\nxErrorNormalized = %s",
+                RMO.realMatrixToString(x),RMO.realMatrixToString(initialV),RMO.realMatrixToString(xErrorNormalized)));
         
         
         return v;
