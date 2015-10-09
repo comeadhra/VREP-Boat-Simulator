@@ -96,9 +96,11 @@ public class vrepSimBoat {
         vrep.simxSetObjectPosition(clientId, modelId, remoteApi.sim_handle_parent,
                 initPos, remoteApi.simx_opmode_oneshot);
         
+        /*
         spoofedSensors.add(new SpoofedSensor(SENSOR_TYPE.DO, environmentalListener, nodeInd, gps.getLatitude(), gps.getLongitude()));
         spoofedSensors.add(new SpoofedSensor(SENSOR_TYPE.EC, environmentalListener, nodeInd, gps.getLatitude(), gps.getLongitude()));
         spoofedSensors.add(new SpoofedSensor(SENSOR_TYPE.TEMP, environmentalListener, nodeInd, gps.getLatitude(), gps.getLongitude()));
+        */
         
         //Start sensor threads
         threader.run(5.0, "gpsThread", new GpsThread());
@@ -124,7 +126,7 @@ public class vrepSimBoat {
             double lat = gps.getLatitude();
             double lon = gps.getLongitude();
             
-            if (Math.abs(lat) > 1e8 || Math.abs(lon) > 1e8) {
+            if (Math.abs(lat) > 1e8 || Math.abs(lon) > 1e8 || lat != lat || lon != lon) { // the x!=x check is to check for NaN
                 return;
             }
             
@@ -140,7 +142,7 @@ public class vrepSimBoat {
             z.setEntry(0, 0, utmLoc.eastingValue(SI.METER));
             z.setEntry(1,0,utmLoc.northingValue(SI.METER));
             RealMatrix R = MatrixUtils.createRealMatrix(2,2);
-            R.setEntry(0, 0, 5.0);
+            R.setEntry(0,0,5.0);
             R.setEntry(1,1,5.0);
             Datum datum = new Datum(SENSOR_TYPE.GPS,System.currentTimeMillis(),z,R, nodeInd);
             localizationListener.newDatum(datum);
@@ -201,7 +203,7 @@ public class vrepSimBoat {
             //TODO: Add noise to gyro        /////////////////////////////////////////////////////////////////////////////////////
             
             
-            if (Math.abs(gyro[2]) > 1000.0) {return;} // need this because once in a while the gyro explodes to some ridiculous number, even if the boat is just sitting still
+            if (Math.abs(gyro[2]) > 1000.0 || gyro[2] != gyro[2]) {return;} // need this because once in a while the gyro explodes to some ridiculous number, even if the boat is just sitting still
                         
             RealMatrix z = MatrixUtils.createRealMatrix(1,1);
             z.setEntry(0,0,gyro[2]);
@@ -224,7 +226,7 @@ public class vrepSimBoat {
             
             double yaw = compass[2];
             
-            if (Math.abs(yaw) > 1000.0) { // protect against weird explosions in value
+            if (Math.abs(yaw) > 1000.0 || yaw != yaw) { // protect against weird explosions in value
                 return;
             }
             

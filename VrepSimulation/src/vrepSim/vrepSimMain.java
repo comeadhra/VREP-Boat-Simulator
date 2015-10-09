@@ -14,7 +14,7 @@ public class vrepSimMain {
         remoteApi vrep = new remoteApi();
 
         //Number of boats in the scene
-        final int NUMBER_OF_SIMULATED_BOATS = 1;
+        final int NUMBER_OF_SIMULATED_BOATS = 5; ///////////////////////////////////////////////////////////// !!!!
         //Initial positions of boats
         Random randomGenerator = new Random();
         GpsPosition[] initPositions = new GpsPosition[NUMBER_OF_SIMULATED_BOATS];

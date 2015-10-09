@@ -51,7 +51,6 @@ public class LutraPlatform extends BasePlatform {
     RealMatrix velocityProfile = MatrixUtils.createRealMatrix(timeSteps, 3); // t, vel., pos.
     LatLong latLong;
     RealMatrix covariance = MatrixUtils.createRealMatrix(2,2);
-    final double FLOW_MEASUREMENT_HZ = 5.0;
 
     class FilterAndControllerThread extends BaseThread {
         @Override
@@ -134,7 +133,7 @@ public class LutraPlatform extends BasePlatform {
         startTime = System.currentTimeMillis();
         threader.run(containers.controlHz, "FilterAndController", new FilterAndControllerThread());
         threader.run(1.0,"KBPrinting", new KBPrintingThread());
-        threader.run(FLOW_MEASUREMENT_HZ,"FlowMeasurement",new FlowMeasurementThread());
+        threader.run(SENSOR_TYPE.FLOW.Hz,"FlowMeasurement",new FlowMeasurementThread());
     }
 
 
@@ -352,7 +351,7 @@ public class LutraPlatform extends BasePlatform {
 
         // move local .x localization state into device.id.location
         // remember to add in device.id.home because .x is about (0,0)
-        double[] home = containers.NDV_to_DA(self.device.home);
+        double[] home = containers.NDV_to_DA(self.device.home);        
 
         containers.eastingNorthingBearing.set(0,containers.localState.get(0) + home[0]);
         containers.eastingNorthingBearing.set(1,containers.localState.get(1) + home[1]);

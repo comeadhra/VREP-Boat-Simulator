@@ -106,7 +106,7 @@ public class BoatEKF implements DatumListener {
             //Log.i("jjb_GYRO",String.format("received gyro datum z = %.2f", datum.getZ().getEntry(0,0)*180.0/Math.PI));
         }
         if (datum.getType() == SENSOR_TYPE.GPS) {
-            //Log.i("jjb_GYRO",String.format("received GPS datum X = %.6e  Y = %.6e", datum.getZ().getEntry(0,0), datum.getZ().getEntry(1,0)));
+            //System.out.println("jjb_GPS" + String.format("received GPS datum X = %.6e  Y = %.6e", datum.getZ().getEntry(0,0), datum.getZ().getEntry(1,0)));
         }
 
         //String timeString = String.format("EKF.t BEFORE = %d",t);
@@ -132,12 +132,12 @@ public class BoatEKF implements DatumListener {
         // warning if datum timestamp is too far away from filter's current time
         if ((datum.getTimestamp().doubleValue() - t.doubleValue())/1000.0 > ROLLBACK_LIMIT) {
             String warning = String.format(
-                    "WARNING: %s sensor is more than %f seconds AHEAD of filter",datum.typeString(datum.getType()),ROLLBACK_LIMIT);
+                    "WARNING: %s sensor is more than %f seconds AHEAD of filter",datum.getType().typeString,ROLLBACK_LIMIT);
             //Log.w("jjb",warning);
         }
         else if ((datum.getTimestamp().doubleValue() - t.doubleValue())/1000.0 < -ROLLBACK_LIMIT) {
             String warning = String.format(
-                    "WARNING: %s sensor is more than %f seconds BEHIND of filter",datum.typeString(datum.getType()),ROLLBACK_LIMIT);
+                    "WARNING: %s sensor is more than %f seconds BEHIND of filter",datum.getType().typeString,ROLLBACK_LIMIT);
             //Log.w("jjb",warning);
         }
 

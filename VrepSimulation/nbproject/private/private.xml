@@ -3,11 +3,8 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/jazen/Documents/Research/Platypus_Software/MyForks/VREP-Boat-Simulator/VrepSimulation/src/vrepSim/LutraPlatform.java</file>
-            <file>file:/home/jazen/Documents/Research/Platypus_Software/MyForks/VREP-Boat-Simulator/VrepSimulation/src/vrepSim/HysteresisFilter.java</file>
-            <file>file:/home/jazen/Documents/Research/Platypus_Software/MyForks/VREP-Boat-Simulator/VrepSimulation/src/vrepSim/LutraMadaraContainers.java</file>
+            <file>file:/home/jazen/Documents/Research/Platypus_Software/MyForks/VREP-Boat-Simulator/VrepSimulation/src/vrepSim/vrepSimBoat.java</file>
             <file>file:/home/jazen/Documents/Research/Platypus_Software/MyForks/VREP-Boat-Simulator/VrepSimulation/src/vrepSim/vrepSimMain.java</file>
-            <file>file:/home/jazen/Documents/Research/Platypus_Software/MyForks/VREP-Boat-Simulator/VrepSimulation/src/vrepSim/Datum.java</file>
         </group>
     </open-files>
 </project-private>

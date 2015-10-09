@@ -1,7 +1,5 @@
 package vrepSim;
 
-import com.gams.utility.Position;
-
 import org.apache.commons.math.linear.RealMatrix;
 
 import java.io.File;
@@ -14,33 +12,37 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.Set;
 
+import javax.measure.unit.NonSI;
+
 enum SENSOR_CATEGORY {
     LOCALIZATION, ENVIRONMENTAL
 }
 enum SENSOR_TYPE {
 
     // TODO: verify the sampling rate for all the sensor types
-    GPS(SENSOR_CATEGORY.LOCALIZATION,false,5.0),
-    COMPASS(SENSOR_CATEGORY.LOCALIZATION,false,10.0),
-    GYRO(SENSOR_CATEGORY.LOCALIZATION,false,10.0),
-    IMU(SENSOR_CATEGORY.LOCALIZATION,false,10.0),
-    DGPS(SENSOR_CATEGORY.LOCALIZATION,false,5.0),
-    MOTOR(SENSOR_CATEGORY.LOCALIZATION,false,25.0),
-    EC(SENSOR_CATEGORY.ENVIRONMENTAL,false,20.0),
-    TEMP(SENSOR_CATEGORY.ENVIRONMENTAL,true,20.0),
-    DO(SENSOR_CATEGORY.ENVIRONMENTAL,true,5.0),
-    WIFI(SENSOR_CATEGORY.ENVIRONMENTAL,false,1.0),
-    DEPTH(SENSOR_CATEGORY.ENVIRONMENTAL,false,1.0),
-    FLOW(SENSOR_CATEGORY.ENVIRONMENTAL,true,5.0);
+    GPS(SENSOR_CATEGORY.LOCALIZATION,"GPS",false,5.0),
+    COMPASS(SENSOR_CATEGORY.LOCALIZATION,"COMPASS",false,10.0),
+    GYRO(SENSOR_CATEGORY.LOCALIZATION,"GYRO",false,10.0),
+    IMU(SENSOR_CATEGORY.LOCALIZATION,"IMU",false,10.0),
+    DGPS(SENSOR_CATEGORY.LOCALIZATION,"DGPS",false,5.0),
+    MOTOR(SENSOR_CATEGORY.LOCALIZATION,"MOTOR",false,25.0),
+    EC(SENSOR_CATEGORY.ENVIRONMENTAL,"EC",false,20.0),
+    TEMP(SENSOR_CATEGORY.ENVIRONMENTAL,"TEMP",true,20.0),
+    DO(SENSOR_CATEGORY.ENVIRONMENTAL,"DO",true,5.0),
+    WIFI(SENSOR_CATEGORY.ENVIRONMENTAL,"WIFI",false,1.0),
+    DEPTH(SENSOR_CATEGORY.ENVIRONMENTAL,"DEPTH",false,1.0),
+    FLOW(SENSOR_CATEGORY.ENVIRONMENTAL,"FLOW",true,1.0);
 
     SENSOR_CATEGORY category;
     boolean hysteresis;
     double Hz;
+    String typeString;
 
-    SENSOR_TYPE(SENSOR_CATEGORY category, boolean hysteresis, double Hz) {
+    SENSOR_TYPE(SENSOR_CATEGORY category, String typeString, boolean hysteresis, double Hz) {
         this.category = category;
         this.hysteresis = hysteresis;
         this.Hz = Hz;
+        this.typeString = typeString;
     }
     public static Set<SENSOR_TYPE> localization = EnumSet.of(GPS, COMPASS, GYRO, IMU, DGPS, MOTOR);
     public static Set<SENSOR_TYPE> environmental = EnumSet.of(EC, TEMP, DO, WIFI, DEPTH, FLOW);
@@ -123,7 +125,7 @@ public class Datum {
     @Override
     public String toString() {
         return String.format("TYPE = %s,  DATE = %s,  TIME = %d,  LAT = %.6e,  LONG = %.6e, VALUE = %s",
-                typeString(this.type),df.format(dateobj),timestamp,lat,lon,zString());
+                type.typeString,df.format(dateobj),timestamp,lat,lon,zString());
     }
 
     String zString () {
@@ -136,40 +138,6 @@ public class Datum {
     }
 
     public boolean isType(SENSOR_TYPE type) {return this.type == type;}
-
-    static public String typeString(SENSOR_TYPE type) {
-        if (type == SENSOR_TYPE.GPS) {
-            return "GPS";
-        }
-        if (type == SENSOR_TYPE.COMPASS) {
-            return "COMPASS";
-        }
-        if (type == SENSOR_TYPE.GYRO) {
-            return "GYRO";
-        }
-        if (type == SENSOR_TYPE.IMU) {
-            return "IMU";
-        }
-        if (type ==  SENSOR_TYPE.DGPS) {
-            return "DGPS";
-        }
-        if (type == SENSOR_TYPE.MOTOR) {
-            return "MOTOR";
-        }
-        if (type == SENSOR_TYPE.EC) {
-            return "EC";
-        }
-        if (type == SENSOR_TYPE.TEMP) {
-            return "TEMP";
-        }
-        if (type == SENSOR_TYPE.DO) {
-            return "DO";
-        }
-        if (type == SENSOR_TYPE.WIFI) {
-            return "WIFI";
-        }
-        return "UNKNOWN";
-    }
 
     public void toKnowledgeBase() {
         // TODO: put everything into the environmentalData FlexMap in LutraMadaraContainers
