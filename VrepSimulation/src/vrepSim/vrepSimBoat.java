@@ -18,6 +18,8 @@ import org.jscience.geography.coordinates.LatLong;
 import org.jscience.geography.coordinates.UTM;
 import org.jscience.geography.coordinates.crs.ReferenceEllipsoid;
 
+import vrepSim.SENSOR_TYPE;
+
 
 public class vrepSimBoat {
 
@@ -39,19 +41,22 @@ public class vrepSimBoat {
     private double[] compass;      //current compass reading
     private final Threader threader;
     private final LutraGAMS lutra;
-    private final DatumListener datumListener;
+    private final DatumListener localizationListener;
+    private final DatumListener environmentalListener;
     List<Datum> gpsHistory = new ArrayList<>(); // maintain a list of GPS data within some time window
     final double gpsHistoryTimeWindow = 2.0; // if a gps point is older than X seconds, abandon it
     double eBoardGPSTimestamp = 0.0;
     SimpleRegression regX = new SimpleRegression();
     SimpleRegression regY = new SimpleRegression();    
+    private ArrayList<SpoofedSensor> spoofedSensors = new ArrayList<>();
     
     public vrepSimBoat(int nodeInd, GpsPosition initGps, GpsPosition swPosition) {
         
         // start the software that would be running on the boat
         lutra = new LutraGAMS(nodeInd, 1, THRUST_TYPES.DIFFERENTIAL);
         lutra.start(lutra);
-        datumListener = lutra.platform.boatEKF;
+        localizationListener = lutra.platform.boatEKF;
+        environmentalListener = lutra.platform.hysteresisFilter;
         
         //Instantiate Threader for thread handling
         threader = new Threader();
@@ -91,17 +96,24 @@ public class vrepSimBoat {
         vrep.simxSetObjectPosition(clientId, modelId, remoteApi.sim_handle_parent,
                 initPos, remoteApi.simx_opmode_oneshot);
         
+        spoofedSensors.add(new SpoofedSensor(SENSOR_TYPE.DO, environmentalListener, nodeInd, gps.getLatitude(), gps.getLongitude()));
+        spoofedSensors.add(new SpoofedSensor(SENSOR_TYPE.EC, environmentalListener, nodeInd, gps.getLatitude(), gps.getLongitude()));
+        spoofedSensors.add(new SpoofedSensor(SENSOR_TYPE.TEMP, environmentalListener, nodeInd, gps.getLatitude(), gps.getLongitude()));
         
         //Start sensor threads
         threader.run(5.0, "gpsThread", new GpsThread());
         threader.run(5.0, "compassThread", new CompassThread());
         threader.run(5.0, "gyroThread", new GyroThread());
-        threader.run(25.0, "motorUpdateThread", new MotorUpdateThread());
+        threader.run(10.0, "motorUpdateThread", new MotorUpdateThread());
+        for (int i = 0; i < spoofedSensors.size(); i ++) { // one thread per sensor type
+            SpoofedSensor ss = spoofedSensors.get(i);
+            threader.run(ss.type.Hz,ss.threadName,ss.thread);
+        }
 
     }
     //Thread to get GPS position from VREP, add noise
     //and pass into the data back to the controlling
-    //algorithm
+    //algorithm   
 
     private class GpsThread extends BaseThread {
 
@@ -131,7 +143,7 @@ public class vrepSimBoat {
             R.setEntry(0, 0, 5.0);
             R.setEntry(1,1,5.0);
             Datum datum = new Datum(SENSOR_TYPE.GPS,System.currentTimeMillis(),z,R, nodeInd);
-            datumListener.newDatum(datum);
+            localizationListener.newDatum(datum);
 
             gpsVelocity(datum);
         }
@@ -176,7 +188,7 @@ public class vrepSimBoat {
         R.setEntry(0, 0, 0.1); // definitely overconfident
         R.setEntry(1, 1, 0.1);
         Datum datum2 = new Datum(SENSOR_TYPE.DGPS,t,z,R,nodeInd);
-        datumListener.newDatum(datum2);        
+        localizationListener.newDatum(datum2);        
     }
 
     private class GyroThread extends BaseThread {
@@ -196,7 +208,7 @@ public class vrepSimBoat {
             RealMatrix R = MatrixUtils.createRealMatrix(1,1);
             R.setEntry(0, 0, 0.0004*0.0004); // the noise floor with zero input --> TINY error, so this is supreme overconfidence
             Datum datum = new Datum(SENSOR_TYPE.GYRO,System.currentTimeMillis(),z,R,nodeInd);
-            datumListener.newDatum(datum);            
+            localizationListener.newDatum(datum);            
         }
 
       
@@ -239,7 +251,7 @@ public class vrepSimBoat {
             RealMatrix R = MatrixUtils.createRealMatrix(1,1);
             R.setEntry(0, 0, Math.pow((Math.PI/18.0)/2.0,2.0)); // estimate 10 degrees is 2 std. dev's
             Datum datum = new Datum(SENSOR_TYPE.COMPASS,System.currentTimeMillis(),z,R,nodeInd);
-            datumListener.newDatum(datum);
+            localizationListener.newDatum(datum);
         }
 
     }

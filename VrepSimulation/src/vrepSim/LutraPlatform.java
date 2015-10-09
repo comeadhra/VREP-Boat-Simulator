@@ -95,8 +95,10 @@ public class LutraPlatform extends BasePlatform {
                 RealMatrix F = MatrixUtils.createRealMatrix(2,1);
                 F.setEntry(0,0,fx);
                 F.setEntry(1,0,fy);
-                Position position = new Position(self.device.location.get(0),self.device.location.get(1),0.0);
-                Datum datum = new Datum(SENSOR_TYPE.FLOW,position,System.currentTimeMillis(),F,(int)self.id.get());
+                //Position position = new Position(self.device.location.get(0),self.device.location.get(1),0.0);
+                double lat = self.device.location.get(0);
+                double lon = self.device.location.get(1);
+                Datum datum = new Datum(SENSOR_TYPE.FLOW,System.currentTimeMillis(),F,lat,lon,(int)self.id.get());
                 hysteresisFilter.newDatum(datum);
             }
         }

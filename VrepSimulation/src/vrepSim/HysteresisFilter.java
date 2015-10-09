@@ -52,7 +52,7 @@ public class HysteresisFilter implements DatumListener {
         SENSOR_TYPE type = datum.getType();
         String logString = datum.toString();
 
-        //Log.i("jjb_HYSTERESIS",String.format("New datum: %s",datum.toString()));
+        System.out.println("jjb_HYSTERESIS: " + String.format("New datum: %s",datum.toString()));
 
         if (!isConverged(type)) {
             logString = logString + " -- WARNING: MAY HAVE HYSTERESIS";
