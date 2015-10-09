@@ -97,12 +97,25 @@ public class RMO {
         return result;
     }
 
+
     public static RealMatrix inverse(RealMatrix a) {
         RealMatrix result;
         LUDecompositionImpl decomp = new LUDecompositionImpl(a);
         result = decomp.getSolver().getInverse();
         return result;
     }
+
+    /*
+    public static RealMatrix inverse(RealMatrix a) {
+        RealMatrix result;
+
+    }
+
+    private static Jama.Matrix RealMatrixToJamaMatrix(RealMatrix a) {
+        Jama.Matrix B = Jama.Matrix.identity(a.getRowDimension(),a.getColumnDimension());
+        return B;
+    }
+    */
 
     public static double[] covarianceEllipse(RealMatrix covariance) {
         //Log.w("jjb", "Starting covarianceEllipse()...");

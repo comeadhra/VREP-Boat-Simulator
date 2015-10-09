@@ -29,8 +29,8 @@ public class vrepSimBoat {
     private final int nodeInd;           //index of node
     private final int modelId;           //model id
     private final int clientId;          //id of vrep simulation scene
-    private final String leftMotorSig = "motor1";
-    private final String rightMotorSig = "motor0";
+    private final String leftMotorSig = "lm";
+    private final String rightMotorSig = "rm";
     private final String vrepHost = "127.0.0.1";
     private final int vrepPort;          //vrep communication port 
     private final GpsPosition  swPosition;        //GPS coordinates of origin
@@ -167,7 +167,7 @@ public class vrepSimBoat {
         double xdot = regX.getSlope();
         double ydot = regY.getSlope();
         
-        System.out.println(String.format("xdot = %.3f  ydot = %.3f  v = %.3f",xdot,ydot,Math.sqrt(xdot*xdot+ydot*ydot)));
+        //System.out.println(String.format("xdot = %.3f  ydot = %.3f  v = %.3f",xdot,ydot,Math.sqrt(xdot*xdot+ydot*ydot)));
 
         RealMatrix z = MatrixUtils.createRealMatrix(2,1);
         z.setEntry(0,0,xdot);
@@ -362,25 +362,4 @@ public class vrepSimBoat {
         return new FloatWA(vrepPosArray);
     }
     
-    /*
-    private class ControllerTestThread extends BaseThread {
-        
-        public void run()
-        {
-             
-             System.out.println("B" + nodeInd + ": GPS: " + gps.getLatitude() 
-                                              + " , " + gps.getLongitude() );
-             System.out.println("B" + nodeInd + ": Yaw:" + gyro[3]);
-             System.out.println("B" + nodeInd + ": Heading:" + compass[3]);
-             
-             //If user input is available
-             //int id = ;
-             //if(id == nodeInd){
-                //rm =;
-                //lm =;
-            
-        }    
-        
-    }
-    */
 }

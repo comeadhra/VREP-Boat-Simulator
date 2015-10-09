@@ -4,6 +4,7 @@ import com.gams.utility.GpsPosition;
 import java.util.ArrayList;
 import coppelia.remoteApi;
 import coppelia.IntW;
+import java.util.Random;
 
 public class vrepSimMain {
 
@@ -15,8 +16,13 @@ public class vrepSimMain {
         //Number of boats in the scene
         final int NUMBER_OF_SIMULATED_BOATS = 1;
         //Initial positions of boats
+        Random randomGenerator = new Random();
         GpsPosition[] initPositions = new GpsPosition[NUMBER_OF_SIMULATED_BOATS];
-        initPositions[0] = new GpsPosition(40.436902, -79.948678, 0);
+        initPositions[0] = new GpsPosition(40.436902,-79.948678, 0);
+        for (int i = 1; i < NUMBER_OF_SIMULATED_BOATS; i++) {
+            initPositions[i] = new GpsPosition(40.436902 + (3+randomGenerator.nextDouble()*7.0)*1.0e-5,
+                                              -79.948678 + (3+randomGenerator.nextDouble()*7.0)*1.0e-5, 0);
+        }
 
         //Vrep communication settings
         String vrepHost = "127.0.0.1";

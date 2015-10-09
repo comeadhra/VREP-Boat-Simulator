@@ -2,6 +2,7 @@ package vrepSim;
 
 import com.gams.controllers.BaseController;
 import com.gams.platforms.BasePlatform;
+import com.gams.platforms.PlatformReturnStatusEnum;
 import com.gams.platforms.PlatformStatusEnum;
 import com.gams.utility.Position;
 import com.gams.utility.Axes;
@@ -16,10 +17,11 @@ import org.apache.commons.math.linear.RealMatrix;
 import org.jscience.geography.coordinates.LatLong;
 import org.jscience.geography.coordinates.UTM;
 
+import java.util.Arrays;
+
 import javax.measure.unit.NonSI;
 
 import edu.cmu.ri.crw.data.UtmPose;
-import java.util.Arrays;
 
 
 /**
@@ -34,6 +36,7 @@ public class LutraPlatform extends BasePlatform {
 
     BoatEKF boatEKF;
     BoatMotionController boatMotionController;
+    HysteresisFilter hysteresisFilter;
     Threader threader;
     boolean homeSet = false;
     VelocityProfileListener velocityProfileListener;
@@ -48,12 +51,13 @@ public class LutraPlatform extends BasePlatform {
     RealMatrix velocityProfile = MatrixUtils.createRealMatrix(timeSteps, 3); // t, vel., pos.
     LatLong latLong;
     RealMatrix covariance = MatrixUtils.createRealMatrix(2,2);
+    final double FLOW_MEASUREMENT_HZ = 5.0;
 
     class FilterAndControllerThread extends BaseThread {
         @Override
         public void run() {
             if (containers.resetLocalization.get() == 1) {
-                System.out.println(" !!!!! RESETTING LOCALIZATION !!!!!");
+                //Log.w("jjb", " !!!!! RESETTING LOCALIZATION !!!!!");
                 boatEKF.resetLocalization();
                 containers.resetLocalization.set(0);
             }
@@ -64,6 +68,36 @@ public class LutraPlatform extends BasePlatform {
                 }
                 boatEKF.predict();
                 boatMotionController.control();
+            }
+        }
+    }
+
+    class KBPrintingThread extends BaseThread {
+        @Override
+        public void run() {
+            knowledge.print();
+        }
+    }
+
+    class FlowMeasurementThread extends BaseThread {
+        @Override
+        public void run() {
+            // need both predicted velocity and global velocity
+            // also, only valid when bearing fraction is very small, like < 0.05
+            if (containers.bearingFraction.get() < 0.05) {
+                double vx = containers.localState.get(4);
+                double vy = containers.localState.get(5);
+                double vPredicted = boatMotionController.velocityMotorMap.thrustFractionToVelocity(containers.bearingFraction.get());
+                double vxPredicted = vPredicted*Math.cos(containers.localState.get(2));
+                double vyPredicted = vPredicted*Math.sin(containers.localState.get(2));
+                double fx = vx - vxPredicted;
+                double fy = vy - vyPredicted;
+                RealMatrix F = MatrixUtils.createRealMatrix(2,1);
+                F.setEntry(0,0,fx);
+                F.setEntry(1,0,fy);
+                Position position = new Position(self.device.location.get(0),self.device.location.get(1),0.0);
+                Datum datum = new Datum(SENSOR_TYPE.FLOW,position,System.currentTimeMillis(),F,(int)self.id.get());
+                hysteresisFilter.newDatum(datum);
             }
         }
     }
@@ -89,6 +123,7 @@ public class LutraPlatform extends BasePlatform {
         containers = new LutraMadaraContainers(knowledge,self,thrustType); // has to occur AFTER super.init, or "self" will be null
         boatEKF = new BoatEKF(knowledge,containers); // has to occur AFTER containers() b/c it needs "self"
         boatMotionController = new BoatMotionController(knowledge,boatEKF,containers);
+        hysteresisFilter = new HysteresisFilter(knowledge, containers);
         velocityProfileListener = boatMotionController;
         Datum.setContainersObject(containers);
     }
@@ -96,6 +131,8 @@ public class LutraPlatform extends BasePlatform {
     public void start() {
         startTime = System.currentTimeMillis();
         threader.run(containers.controlHz, "FilterAndController", new FilterAndControllerThread());
+        threader.run(1.0,"KBPrinting", new KBPrintingThread());
+        threader.run(FLOW_MEASUREMENT_HZ,"FlowMeasurement",new FlowMeasurementThread());
     }
 
 
@@ -143,13 +180,14 @@ public class LutraPlatform extends BasePlatform {
     }
 
     public double getAccuracy() {
-        return getPositionAccuracy()/METERS_PER_LATLONG_DEGREE; // this is accuracy in latitude and longitude. 0.00001 is about 1 meter.
+        //return getPositionAccuracy()/METERS_PER_LATLONG_DEGREE; // this is accuracy in latitude and longitude. 0.00001 is about 1 meter.
+        return getPositionAccuracy();
     }
 
     public double getPositionAccuracy() { // not relevant to C++ waypoints algorithm as of 2015-7-26. It uses getAccuracy() instead.
         // TODO: propagate uncertainty in covariance of x,y coordinate to find overall estimate of distance variance in meters
         // TODO: This function returns the MAXIMUM of the sufficient proximity container and that result
-        return 5.0;
+        return containers.sufficientProximity.get();
     }
 
     /**
@@ -179,17 +217,16 @@ public class LutraPlatform extends BasePlatform {
 
         double[] home = containers.NDV_to_DA(self.device.home);
         self.device.dest.set(0,localTarget[0]+home[0]);
-        self.device.dest.set(1,localTarget[1]+home[1]);
+        self.device.dest.set(1, localTarget[1] + home[1]);
 
-        //System.out.println(String.format("proximity = %.3f",proximity));        
-        //containers.sufficientProximity.set(proximity);
     }
 
     public int move(Position target, double proximity) {
         double[] targetArray;
         targetArray = target.toArray();
+
         if (Arrays.equals(targetArray, currentTarget)) {
-            return PlatformStatusEnum.OK.value();
+
         }
         else {
             currentTarget = targetArray;
@@ -198,10 +235,14 @@ public class LutraPlatform extends BasePlatform {
             self.device.source.set(2, containers.eastingNorthingBearing.get(2));
         }
 
-        // TODO: add some kind of last destination vs. current destination if statement protection so this isn't called over and over
         double[] localTarget = containers.PositionToLocalXY(target);
         moveLocalXY(localTarget, proximity);
-        return PlatformStatusEnum.OK.value();
+        if (containers.distToDest.get() < containers.sufficientProximity.get()) {
+            return PlatformReturnStatusEnum.PLATFORM_ARRIVED.value();
+        }
+        else {
+            return PlatformReturnStatusEnum.PLATFORM_MOVING.value();
+        }
     }
 
     public int move(UTM utm, double proximity) {
@@ -297,7 +338,7 @@ public class LutraPlatform extends BasePlatform {
     }
 
     public java.lang.String getId() {
-        return String.format("%s_%d",getName(),getId());
+        return String.format("%s_%d",getName(),self.id.get());
     }
 
     public java.lang.String getName() {
@@ -305,7 +346,6 @@ public class LutraPlatform extends BasePlatform {
     }
 
     public int sense() {
-        
         containers.connectivityWatchdog.set(1L);
 
         // move local .x localization state into device.id.location
@@ -331,6 +371,7 @@ public class LutraPlatform extends BasePlatform {
         containers.errorEllipse.set(1,errorEllipse[1]);
         containers.errorEllipse.set(2,errorEllipse[2]);
 
+        //Log.w("jjb","platform sense() KB:");
         //knowledge.print();
 
         return PlatformStatusEnum.OK.value();
