@@ -268,8 +268,8 @@ public class vrepSimBoat {
             if (lutra != null) {
                 //TODO: Get motor values from LutraGams
                 //Get motor speeds from knowledge base
-                leftMotorSpeed = (float)lutra.platform.containers.motorCommands.get(0); //get value from container
-                rightMotorSpeed = (float)lutra.platform.containers.motorCommands.get(1); //get value from container
+                leftMotorSpeed = (float)lutra.platform.containers.motorCommands.get(1); //get value from container
+                rightMotorSpeed = (float)lutra.platform.containers.motorCommands.get(0); //get value from container
                 
                 //System.out.println(String.format("motorCommands.get(0) = %f,  motorCommands.get(1) = %f",leftMotorSpeed,rightMotorSpeed));
 

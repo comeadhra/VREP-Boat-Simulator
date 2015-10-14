@@ -1,7 +1,6 @@
 package vrepSim;
 
 import com.madara.KnowledgeBase;
-import com.madara.KnowledgeRecord;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,6 +19,7 @@ public class HysteresisFilter implements DatumListener {
     HashMap<SENSOR_TYPE,List<Double>> medianChangesHashMap;
 
     HashMap<SENSOR_TYPE,Boolean> convergedHashMap;
+    HashMap<SENSOR_TYPE,Boolean> heightsInitializedHashMap;
     HashMap<SENSOR_TYPE,Long> dataToKBCount; // number of data points pushed into knowledge base
 
     KnowledgeBase knowledge;
@@ -39,10 +39,18 @@ public class HysteresisFilter implements DatumListener {
         heightsHashMap = new HashMap<>();
         markersHashMap = new HashMap<>();
         desiredMarkersHashMap = new HashMap<>();
+        medianChangesHashMap = new HashMap<>();
         convergedHashMap = new HashMap<>();
+        heightsInitializedHashMap = new HashMap<>();
         dataToKBCount = new HashMap<>();
-        for (SENSOR_TYPE type : SENSOR_TYPE.environmental) {
+        for (SENSOR_TYPE type : SENSOR_TYPE.environmental) { // need to initialize hashmaps
+            heightsHashMap.put(type,new ArrayList<Double>());
+            markersHashMap.put(type,new ArrayList<Integer>());
+            desiredMarkersHashMap.put(type,new ArrayList<Double>());
+            medianChangesHashMap.put(type,new ArrayList<Double>());
             convergedHashMap.put(type,!type.hysteresis); // non-hysteresis sensors are inherently converged
+            heightsInitializedHashMap.put(type, false);
+            dataToKBCount.put(type,0L);
         }
         oldMedian = 1e30; // humongous value rather than infinity so weird NaN stuff doesn't happen
     }
@@ -93,9 +101,12 @@ public class HysteresisFilter implements DatumListener {
             heights.add(newValue);
             return;
         }
-        if (heights.size() == 5) { // need to sort initial list of five values in ASCENDING order
-            Collections.sort(heights);
-            return;
+        if (!heightsInitializedHashMap.get(type)) {
+            if (heights.size() == 5) { // need to sort initial list of five values in ASCENDING order
+                Collections.sort(heights);
+                heightsInitializedHashMap.put(type, true);
+                return;
+            }
         }
 
         boolean converged = false;
@@ -129,7 +140,7 @@ public class HysteresisFilter implements DatumListener {
         for (int i = k; i < 5; i++) {
             markers.set(i,markers.get(i) + 1);
         }
-        for (int i = 1; i < 5; i++) {
+        for (int i = 1; i < 5; i++) { // don't need to start at i = 0 because the increment is 0
             desiredMarkers.set(i,desiredMarkers.get(i) + increment[i]);
         }
 
@@ -156,8 +167,8 @@ public class HysteresisFilter implements DatumListener {
 
         if (Math.abs(medianChange) > 0) {
             medianChanges.add(medianChange);
-            if (medianChanges.size() > type.Hz) {
-                medianChanges.remove(1); // only maintain last second's worth of measurements
+            if (medianChanges.size() > Math.max(5.0,type.Hz)) {
+                medianChanges.remove(0); // only maintain last second's worth of measurements
             }
 
             double max = -1e30;
@@ -183,11 +194,12 @@ public class HysteresisFilter implements DatumListener {
         }
     }
     void resetSpecific(SENSOR_TYPE type) {
+        heightsInitializedHashMap.put(type, false);
         heightsHashMap.get(type).clear();
         markersHashMap.get(type).clear();
         desiredMarkersHashMap.get(type).clear();
         for (int i = 0; i < 5; i++) {
-            markersHashMap.get(type).add(i);
+            markersHashMap.get(type).add(i+1); // 1:5
             desiredMarkersHashMap.get(type).add(defaultDesiredMarkers[i]);
         }
     }
@@ -207,6 +219,4 @@ public class HysteresisFilter implements DatumListener {
             dataToKBCount.put(type, dataToKBCount.get(type) + 1);
         }
     }
-
-
 }

@@ -81,24 +81,26 @@ public class LutraPlatform extends BasePlatform {
     class FlowMeasurementThread extends BaseThread {
         @Override
         public void run() {
-            // need both predicted velocity and global velocity
-            // also, only valid when bearing fraction is very small, like < 0.05
-            if (containers.bearingFraction.get() < 0.05) {
-                double vx = containers.localState.get(4);
-                double vy = containers.localState.get(5);
-                double vPredicted = boatMotionController.velocityMotorMap.thrustFractionToVelocity(containers.bearingFraction.get());
-                double vxPredicted = vPredicted*Math.cos(containers.localState.get(2));
-                double vyPredicted = vPredicted*Math.sin(containers.localState.get(2));
-                double fx = vx - vxPredicted;
-                double fy = vy - vyPredicted;
-                RealMatrix F = MatrixUtils.createRealMatrix(2,1);
-                F.setEntry(0,0,fx);
-                F.setEntry(1,0,fy);
-                //Position position = new Position(self.device.location.get(0),self.device.location.get(1),0.0);
-                double lat = self.device.location.get(0);
-                double lon = self.device.location.get(1);
-                Datum datum = new Datum(SENSOR_TYPE.FLOW,System.currentTimeMillis(),F,lat,lon,(int)self.id.get());
-                hysteresisFilter.newDatum(datum);
+            if (containers.localized.get() == 1) {
+                // need both predicted velocity and global velocity
+                // also, only valid when bearing fraction is very small, like < 0.05
+                if (containers.bearingFraction.get() < 0.05) {
+                    double vx = containers.localState.get(4);
+                    double vy = containers.localState.get(5);
+                    double vPredicted = boatMotionController.velocityMotorMap.thrustFractionToVelocity(containers.bearingFraction.get());
+                    double vxPredicted = vPredicted*Math.cos(containers.localState.get(2));
+                    double vyPredicted = vPredicted*Math.sin(containers.localState.get(2));
+                    double fx = vx - vxPredicted;
+                    double fy = vy - vyPredicted;
+                    RealMatrix F = MatrixUtils.createRealMatrix(2,1);
+                    F.setEntry(0,0,fx);
+                    F.setEntry(1,0,fy);
+                    //Position position = new Position(self.device.location.get(0),self.device.location.get(1),0.0);
+                    double lat = self.device.location.get(0);
+                    double lon = self.device.location.get(1);
+                    Datum datum = new Datum(SENSOR_TYPE.FLOW,System.currentTimeMillis(),F,lat,lon,(int)self.id.get());
+                    hysteresisFilter.newDatum(datum);
+                }
             }
         }
     }
